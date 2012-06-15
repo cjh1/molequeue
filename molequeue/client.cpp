@@ -18,6 +18,7 @@
 
 #include "jobmanager.h"
 #include "jsonrpc.h"
+#include "transport/localsocketconnection.h"
 
 #include <QtCore/QDateTime>
 #include <QtCore/QDebug>
@@ -43,9 +44,6 @@ Client::Client(QObject *parentObject) :
   qRegisterMetaType<const Job*>("const MoleQueue::Job*");
   qRegisterMetaType<JobState>("MoleQueue::JobState");
   qRegisterMetaType<QueueListType>("MoleQueue::QueueListType");
-
-  QLocalSocket *socket = new QLocalSocket ();
-  this->setSocket(socket);
 
   connect(m_jsonrpc, SIGNAL(queueListReceived(MoleQueue::IdType,MoleQueue::QueueListType)),
           this, SLOT(queueListReceived(MoleQueue::IdType,MoleQueue::QueueListType)));
@@ -207,6 +205,42 @@ void Client::jobStateChangeReceived(IdType moleQueueId,
   emit jobStateChanged(req, oldState, newState);
 }
 
+void Client::connectToServer(const QString &serverName)
+{
+  LocalSocketConnection *connection = new LocalSocketConnection(this, serverName);
+  this->setConnection(connection);
+  connection->open();
+  connection->start();
+
+  if (m_connection == NULL) {
+    qWarning() << Q_FUNC_INFO << "Cannot connect to server at" << serverName
+               << ", connection is not set.";
+    return;
+  }
+
+  if (m_connection->isOpen()) {
+    if (m_connection->connectionString() == serverName) {
+      DEBUGOUT("connectToServer") "Socket already connected to" << serverName;
+      return;
+    }
+    else {
+      DEBUGOUT("connectToServer") "Disconnecting from server"
+          << m_connection->connectionString();
+      m_connection->close();
+      delete m_connection;
+    }
+  }
+  if (serverName.isEmpty()) {
+    DEBUGOUT("connectToServer") "No server specified. Not attempting connection.";
+    return;
+  }
+  else {
+    m_connection = new LocalSocketConnection(this, serverName);
+    connection->open();
+    DEBUGOUT("connectToServer") "Client connected to server"
+        << m_connection->connectionString();
+  }
+}
 
 void Client::requestQueueListUpdate()
 {
