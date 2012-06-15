@@ -20,14 +20,12 @@
 #include "object.h"
 
 #include "molequeueglobal.h"
+#include "connectionlistener.h"
 
 #include <QtCore/QList>
 
-#include <QtNetwork/QAbstractSocket> // for SocketError enum
-
 class ServerTest;
 
-class QLocalServer;
 class QSettings;
 
 namespace MoleQueue
@@ -106,12 +104,12 @@ signals:
   void newConnection(MoleQueue::ServerConnection *conn);
 
   /**
-   * Emitted when an error starting the transport server occurs.
+   * Emitted when an error occurs.
    *
    * @param error
    * @param message
    */
-  void connectionError(QAbstractSocket::SocketError error,
+  void connectionError(MoleQueue::ConnectionListener::Error error,
                        const QString &message);
 
   /**
@@ -189,7 +187,7 @@ protected slots:
   /**
    * Called when the internal socket server has a new connection ready.
    */
-  void newConnectionAvailable();
+  void newConnectionAvailable(MoleQueue::Connection *connection);
 
   /**
    * Called when a client disconnects from the server. This function expects
@@ -209,8 +207,8 @@ protected:
   /// List of active connections
   QList<ServerConnection*> m_connections;
 
-  /// The internal local socket server
-  QLocalServer *m_server;
+  /// The connection listener
+  ConnectionListener *m_connectionListener;
 
   /// The JobManager for this Server.
   JobManager *m_jobManager;
@@ -236,10 +234,12 @@ public:
 protected:
   /// Toggles runtime debugging
   bool m_debug;
+
+private:
+  void createConnectionListener();
+  QString m_serverName;
 };
 
 } // end namespace MoleQueue
-
-Q_DECLARE_METATYPE(QAbstractSocket::SocketError)
 
 #endif // SERVER_H
