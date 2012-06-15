@@ -57,6 +57,8 @@ set(mq_moc
   actionfactorymanager.h
   addqueuedialog.h
   client.h
+  connection.h
+  connectionlistener.h
   jobactionfactory.h
   jobactionfactories/opendirectoryactionfactory.h
   jobactionfactories/openwithactionfactory.h
@@ -164,6 +166,7 @@ set(mqclient_srcs
 set(mqclient_moc
   abstractrpcinterface.h
   client.h
+  connection.h
   jobmanager.h
   jsonrpc.h
 )
