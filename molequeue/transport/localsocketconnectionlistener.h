@@ -19,7 +19,7 @@
 
 #include "../connectionlistener.h"
 
-#include <QtNetwork/qabstractsocket.h>
+#include <QtNetwork/QAbstractSocket>
 
 class QLocalServer;
 class ServerTest;

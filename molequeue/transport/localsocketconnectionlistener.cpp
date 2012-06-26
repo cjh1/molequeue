@@ -44,6 +44,7 @@ LocalSocketConnectionListener::~LocalSocketConnectionListener()
 
 void LocalSocketConnectionListener::start()
 {
+  qDebug() << m_connectionString;
   if (!m_server->listen(m_connectionString)) {
     DEBUG("start") "Error starting local socket server. Error type:"
         << m_server->serverError() << m_server->errorString();
@@ -94,6 +95,8 @@ ConnectionListener::Error LocalSocketConnectionListener::toConnectionListenerErr
     QAbstractSocket::SocketError socketError)
 {
   ConnectionListener::Error listenerError = UnknownError;
+
+  qDebug() << socketError;
 
   switch (socketError) {
     case QAbstractSocket::AddressInUseError:

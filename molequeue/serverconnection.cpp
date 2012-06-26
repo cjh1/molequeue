@@ -58,16 +58,10 @@ ServerConnection::~ServerConnection()
 {
 }
 
-void ServerConnection::sendQueueList(const QueueListType &queueList)
+void ServerConnection::sendQueueList(MoleQueue::IdType id,
+                                     const QueueListType &queueList)
 {
-  if (m_listQueuesLUT.isEmpty()) {
-    qWarning() << Q_FUNC_INFO << "Refusing to send listQueues reply -- no "
-                  "pending requests.";
-    return;
-  }
-
-  IdType packetId = m_listQueuesLUT.takeFirst();
-  PacketType packet = m_jsonrpc->generateQueueList(queueList, packetId);
+  PacketType packet = m_jsonrpc->generateQueueList(queueList, id);
   m_connection->send(packet);
 }
 
@@ -135,8 +129,7 @@ void ServerConnection::sendJobStateChangeNotification(const Job *req,
 
 void ServerConnection::queueListRequestReceived(IdType packetId)
 {
-  m_listQueuesLUT.push_back(packetId);
-  emit queueListRequested();
+  emit queueListRequested(packetId);
 }
 
 void ServerConnection::jobSubmissionRequestReceived(IdType packetId,

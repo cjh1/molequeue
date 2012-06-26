@@ -23,7 +23,7 @@ set(MyTests
   queue
   queuemanager
   server
-  serverconnection
+  #serverconnection
   sge
   )
 
@@ -34,7 +34,7 @@ foreach(test ${MyTests})
   add_custom_target(${test}testmoc ALL DEPENDS ${test_MOC_SRC})
   add_executable(${test}test ${test_SRC})
   add_dependencies(${test}test ${test}testmoc testutilsmoc)
-  target_link_libraries(${test}test molequeue_static ${QT_LIBRARIES})
+  target_link_libraries(${test}test molequeue_static ${QT_LIBRARIES} ${ZeroMQ_LIBRARIES})
 
   add_test(NAME molequeue-${test} COMMAND ${test}test)
 

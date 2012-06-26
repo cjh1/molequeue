@@ -13,7 +13,7 @@ option(ENABLE_TESTING "Enable testing" OFF)
 if(ENABLE_TESTING)
   include(CTest)
   enable_testing()
-endif()
+endif() 
 
 # This is necessary for tests, includes etc.
 include_directories("${MoleQueue_SOURCE_DIR}")
@@ -34,3 +34,5 @@ if(ENABLE_TESTING)
   include(BuildPackageTest)
   BuildPackageTest_Add("MoleQueue" "${CMAKE_CURRENT_BINARY_DIR}")
 endif()
+
+option(USE_ZERO_MQ "Build molequeue with ZeroMQ support" OFF)

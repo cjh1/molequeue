@@ -150,9 +150,9 @@ void ServerConnectionTest::testSendQueueList()
   queueTmp->addProgram(progTmp);
 
   // Send dummy request to give the ServerConnection a packetId
-  m_serverConnection->queueListRequestReceived(23);
+//  m_serverConnection->queueListRequestReceived(23);
 
-  m_serverConnection->sendQueueList(qmanager.toQueueList());
+  m_serverConnection->sendQueueList(23, qmanager.toQueueList());
 
   QVERIFY2(m_testServer->waitForPacket(), "Timeout waiting for reply.");
 
@@ -247,7 +247,7 @@ void ServerConnectionTest::testJobStateChangeNotification()
 
 void ServerConnectionTest::testQueueListRequested()
 {
-  QSignalSpy spy (m_serverConnection, SIGNAL(queueListRequested()));
+  QSignalSpy spy (m_serverConnection, SIGNAL(queueListRequested(MoleQueue::IdType)));
 
   MoleQueue::PacketType response =
       this->readReferenceString("serverconnection-ref/queue-list-request.json");

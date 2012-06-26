@@ -18,11 +18,13 @@
 #define CONNECTION_H
 
 #include "molequeueglobal.h"
+#include "message.h"
 
 #include <QtCore/QObject>
 
 namespace MoleQueue
 {
+
 
 /**
  * @class Connection connection.h <molequeue/connection.h>
@@ -55,7 +57,7 @@ public:
   /**
    * Send a message on the connection
    */
-  virtual void send(const PacketType &packet) = 0;
+  virtual void send(const MoleQueue::Message msg) = 0;
 
   /**
    * Close the connection. Once a conneciton is closed if can't reused.
@@ -78,9 +80,9 @@ signals:
   /**
    * Emitted when a new message has been received on this connection.
    *
-   * @param packet The message received.
+   * @param msg The message received.
    */
-  void newMessage(const MoleQueue::PacketType &packet);
+  void newMessage(const MoleQueue::Message msg);
 
   /**
    * Emited when the connection is disconnected.

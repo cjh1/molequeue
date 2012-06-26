@@ -16,10 +16,11 @@
 
 #include <QtTest>
 
+#include "localsocketclient.h"
+
 #include "job.h"
 #include "jobmanager.h"
 #include "molequeueglobal.h"
-#include "localsocketclient.h"
 
 #include "testserver.h"
 
@@ -27,7 +28,7 @@
 
 #include <QtNetwork/QLocalSocket>
 
-class ClientTest : public QObject
+class ZeroMqClientTest : public QObject
 {
   Q_OBJECT
 
@@ -60,7 +61,7 @@ private slots:
 };
 
 
-MoleQueue::PacketType ClientTest::readReferenceString(const QString &filename)
+MoleQueue::PacketType ZeroMqClientTest::readReferenceString(const QString &filename)
 {
   QString realFilename = TESTDATADIR + filename;
   QFile refFile (realFilename);
@@ -73,32 +74,31 @@ MoleQueue::PacketType ClientTest::readReferenceString(const QString &filename)
   return contents;
 }
 
-void ClientTest::initTestCase()
+void ZeroMqClientTest::initTestCase()
 {
   m_server = new TestServer(&m_packet);
   m_client = new MoleQueue::LocalSocketClient();
-  qDebug() << m_server->socketName();
   m_client->connectToServer(m_server->socketName());
   // Let the event loop run a bit to handle the connections
   qApp->processEvents(QEventLoop::AllEvents, 1000);
 }
 
-void ClientTest::cleanupTestCase()
+void ZeroMqClientTest::cleanupTestCase()
 {
   delete m_server;
   delete m_client;
 }
 
-void ClientTest::init()
+void ZeroMqClientTest::init()
 {
   m_packet.clear();
 }
 
-void ClientTest::cleanup()
+void ZeroMqClientTest::cleanup()
 {
 }
 
-void ClientTest::testJobSubmission()
+void ZeroMqClientTest::testJobSubmission()
 {
   MoleQueue::Job *req = m_client->newJobRequest();
 
@@ -125,7 +125,7 @@ void ClientTest::testJobSubmission()
   QCOMPARE(strippedPacket, strippedRefPacket);
 }
 
-void ClientTest::testJobCancellation()
+void ZeroMqClientTest::testJobCancellation()
 {
   MoleQueue::Job *req = m_client->newJobRequest();
   m_client->cancelJob(req);
@@ -146,7 +146,7 @@ void ClientTest::testJobCancellation()
   QCOMPARE(strippedPacket, strippedRefPacket);
 }
 
-void ClientTest::testRequestQueueListUpdate()
+void ZeroMqClientTest::testRequestQueueListUpdate()
 {
   m_client->requestQueueListUpdate();
 
@@ -166,7 +166,7 @@ void ClientTest::testRequestQueueListUpdate()
   QCOMPARE(strippedPacket, strippedRefPacket);
 }
 
-void ClientTest::testQueueListReceived()
+void ZeroMqClientTest::testQueueListReceived()
 {
   // First send a listQueues request, then parse out the id for the response.
   m_client->requestQueueListUpdate();
@@ -197,7 +197,7 @@ void ClientTest::testQueueListReceived()
   QCOMPARE(signalList.size(), 2);
 }
 
-void ClientTest::testSuccessfulSubmissionReceived()
+void ZeroMqClientTest::testSuccessfulSubmissionReceived()
 {
   // First send a submitJob request, then parse out the id for the response.
   MoleQueue::Job *req = m_client->newJobRequest();
@@ -229,7 +229,7 @@ void ClientTest::testSuccessfulSubmissionReceived()
   QVERIFY(err.isEmpty());
 }
 
-void ClientTest::testFailedSubmissionReceived()
+void ZeroMqClientTest::testFailedSubmissionReceived()
 {
   // First send a submitJob request, then parse out the id for the response.
   MoleQueue::Job *req = m_client->newJobRequest();
@@ -261,7 +261,7 @@ void ClientTest::testFailedSubmissionReceived()
   QVERIFY(!err.isEmpty());
 }
 
-void ClientTest::testJobCancellationConfirmationReceived()
+void ZeroMqClientTest::testJobCancellationConfirmationReceived()
 {
   // First send a cancelJob request, then parse out the id for the response.
   MoleQueue::Job *req = m_client->newJobRequest();
@@ -298,7 +298,7 @@ void ClientTest::testJobCancellationConfirmationReceived()
   QVERIFY(err.isEmpty());
 }
 
-void ClientTest::testJobStateChangeReceived()
+void ZeroMqClientTest::testJobStateChangeReceived()
 {
   QSignalSpy spy (m_client,
                   SIGNAL(jobStateChanged(const MoleQueue::Job*,MoleQueue::JobState,MoleQueue::JobState)));
@@ -323,6 +323,6 @@ void ClientTest::testJobStateChangeReceived()
   QCOMPARE(after,  MoleQueue::Finished);
 }
 
-QTEST_MAIN(ClientTest)
+QTEST_MAIN(ZeroMqClientTest)
 
 #include "moc_clienttest.cxx"

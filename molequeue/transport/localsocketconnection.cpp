@@ -16,6 +16,7 @@
 
 #include "../abstractrpcinterface.h"
 #include "localsocketconnection.h"
+#include "../message.h"
 
 #include <QtCore/QDateTime>
 #include <QtCore/QDebug>
@@ -119,7 +120,8 @@ void LocalSocketConnection::readSocket()
   // Are we done?
   if (static_cast<qint64>(m_currentPacket.size()) == m_currentPacketSize) {
     DEBUG("readSocket") "Packet completed. Size:" << m_currentPacketSize;
-    emit newMessage(m_currentPacket);
+    Message msg(m_currentPacket);
+    emit newMessage(msg);
     m_currentPacket.clear();
     m_currentPacketSize = 0;
   }
@@ -143,12 +145,12 @@ void LocalSocketConnection::writePacketHeader(const PacketType &packet)
   (*m_dataStream) << static_cast<quint32>(packet.size());
 }
 
-void LocalSocketConnection::send(const PacketType &packet)
+void LocalSocketConnection::send(const Message msg)
 {
-  DEBUG("sendPacket") "Sending new packet. Size:" << packet.size();
-  this->writePacketHeader(packet);
-  m_dataStream->writeBytes(packet.constData(),
-                           static_cast<unsigned int>(packet.size()));
+  DEBUG("sendPacket") "Sending new packet. Size:" << msg.data().size();
+  this->writePacketHeader(msg.data());
+  m_dataStream->writeBytes(msg.data().constData(),
+                           static_cast<unsigned int>(msg.data().size()));
   m_socket->flush();
 }
 

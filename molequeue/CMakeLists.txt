@@ -8,6 +8,25 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}
   ${JSONCPP_SOURCE_DIR}
 )
 
+# Are we using ZeroMQ
+if(USE_ZERO_MQ)
+  find_package(ZeroMQ REQUIRED)
+  include_directories(${ZeroMQ_INCLUDE_DIR})
+  set(mq_zeromq_srcs
+    transport/zeromqconnection.cpp
+    transport/zeromqconnectionlistener.cpp)
+  set(mq_zeromq_moc
+    transport/zeromqconnection.h
+    transport/zeromqconnectionlistener.h)
+#    transport/zeromqidentitywrapper.h)
+  set(mqclient_zeromq_srcs
+    transport/zeromqconnection.cpp)
+ #   transport/zeromqidentitywrapper.cpp)
+  set(mqclient_zeromq_moc
+    transport/zeromqconnection.h)
+  add_definitions(-DUSE_ZERO_MQ)
+endif()
+
 set(mq_srcs
   abstractrpcinterface.cpp
   actionfactorymanager.cpp
@@ -25,7 +44,9 @@ set(mq_srcs
   jobtablewidget.cpp
   jobview.cpp
   jsonrpc.cpp
+  localsocketclient.cpp
   mainwindow.cpp
+  message.cpp
   molequeueglobal.h
   object.cpp
   openwithmanagerdialog.cpp
@@ -46,12 +67,13 @@ set(mq_srcs
   queuesettingsdialog.cpp
   remotequeuewidget.cpp
   server.cpp
-  serverconnection.cpp
+#  serverconnection.cpp
   sshcommand.cpp
   sshconnection.cpp
   terminalprocess.cpp
   transport/localsocketconnection.cpp
   transport/localsocketconnectionlistener.cpp
+  ${mq_zeromq_srcs}
 )
 
 set(mq_moc
@@ -71,7 +93,9 @@ set(mq_moc
   jobtablewidget.h
   jobview.h
   jsonrpc.h
+  localsocketclient.h
   mainwindow.h
+  message.h
   object.h
   openwithmanagerdialog.h
   openwithexecutablemodel.h
@@ -97,7 +121,9 @@ set(mq_moc
   terminalprocess.h
   transport/localsocketconnection.h
   transport/localsocketconnectionlistener.h
+  ${mq_zeromq_moc}
 )
+
 qt4_wrap_cpp(moc_srcs ${mq_moc})
 
 qt4_wrap_ui(ui_srcs
@@ -131,7 +157,7 @@ add_library(molequeue_static STATIC
   ${mq_srcs} ${moc_srcs} ${ui_srcs})
 
 add_executable(molequeue MACOSX_BUNDLE main.cpp ${rcc_srcs})
-target_link_libraries(molequeue molequeue_static ${QT_LIBRARIES})
+target_link_libraries(molequeue molequeue_static ${QT_LIBRARIES} ${ZeroMQ_LIBRARIES})
 install(TARGETS molequeue
   DESTINATION bin)
 
@@ -163,9 +189,11 @@ set(mqclient_srcs
   job.cpp
   jobmanager.cpp
   jsonrpc.cpp
+  message.cpp
   molequeueglobal.h
   transport/localsocketconnection.cpp
   ${jsoncpp_srcs}
+  ${mqclient_zeromq_srcs}
 )
 
 set(mqclient_moc
@@ -175,18 +203,21 @@ set(mqclient_moc
   jobmanager.h
   jsonrpc.h
   transport/localsocketconnection.h
+  ${mqclient_zeromq_moc}
 )
 
 #TODO need to install these
 set(mqclient_headers
   abstractrpcinterface.h
   client.h
+  localsocketclient.h
   job.h
   molequeueglobal.h
   ${JSONCPP_SOURCE_DIR}/json/json-forwards.h
 )
 
+
 qt4_wrap_cpp(mqclient_moc_srcs ${mqclient_moc})
 add_library(molequeueclient SHARED ${mqclient_srcs} ${mqclient_moc_srcs})
-target_link_libraries(molequeueclient ${QT_LIBRARIES})
+target_link_libraries(molequeueclient ${QT_LIBRARIES} ${ZeroMQ_LIBRARIES})
 install(TARGETS molequeueclient DESTINATION lib)

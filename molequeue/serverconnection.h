@@ -81,7 +81,7 @@ signals:
    * Emitted when the client sends a request for the available queues
    * and programs.
    */
-  void queueListRequested();
+  void queueListRequested(MoleQueue::IdType packetId);
 
   /**
    * Emitted when the client sends a request for a new job submission.
@@ -104,10 +104,12 @@ public slots:
 
   /**
    * Sends the @a list to the connected client.
-   * @param manager The QueueManager List
-   * @sa QueueManager::toQueueList()
+   *
+   * @param id The id for the rpc
+   * @param queueList The queue List
    */
-  void sendQueueList(const MoleQueue::QueueListType &queueList);
+  void sendQueueList(MoleQueue::IdType id,
+                     const MoleQueue::QueueListType &queueList);
 
   /**
    * Sends a reply to the client informing them that the job submission was
@@ -178,9 +180,6 @@ protected:
 
   /// Tracks MoleQueue ids belonging to this connection
   QList<IdType> m_ownedJobMoleQueueIds;
-
-  /// Tracks queue list requests
-  QList<IdType> m_listQueuesLUT;
 
   /// Tracks job submission requests: moleQueueId --> packetId
   PacketLookupTable m_submissionLUT;

@@ -45,22 +45,34 @@ Client::Client(QObject *parentObject) :
   qRegisterMetaType<JobState>("MoleQueue::JobState");
   qRegisterMetaType<QueueListType>("MoleQueue::QueueListType");
 
-  connect(m_jsonrpc, SIGNAL(queueListReceived(MoleQueue::IdType,MoleQueue::QueueListType)),
-          this, SLOT(queueListReceived(MoleQueue::IdType,MoleQueue::QueueListType)));
+  connect(m_jsonrpc, SIGNAL(queueListReceived(MoleQueue::IdType,
+                                              MoleQueue::QueueListType)),
+          this, SLOT(queueListReceived(MoleQueue::IdType,
+                                       MoleQueue::QueueListType)));
+
   connect(m_jsonrpc,
-          SIGNAL(successfulSubmissionReceived(MoleQueue::IdType,MoleQueue::IdType,MoleQueue::IdType,QDir)),
+          SIGNAL(successfulSubmissionReceived(MoleQueue::IdType,MoleQueue::IdType,
+                                              MoleQueue::IdType,QDir)),
           this,
-          SLOT(successfulSubmissionReceived(MoleQueue::IdType,MoleQueue::IdType,MoleQueue::IdType,QDir)));
+          SLOT(successfulSubmissionReceived(MoleQueue::IdType,
+               MoleQueue::IdType,MoleQueue::IdType,QDir)));
   connect(m_jsonrpc,
-          SIGNAL(failedSubmissionReceived(MoleQueue::IdType,MoleQueue::JobSubmissionErrorCode,QString)),
+          SIGNAL(failedSubmissionReceived(MoleQueue::IdType,
+                                          MoleQueue::JobSubmissionErrorCode,QString)),
           this,
-          SLOT(failedSubmissionReceived(MoleQueue::IdType,MoleQueue::JobSubmissionErrorCode,QString)));
+          SLOT(failedSubmissionReceived(MoleQueue::IdType,
+               MoleQueue::JobSubmissionErrorCode,QString)));
   connect(m_jsonrpc,
-          SIGNAL(jobCancellationConfirmationReceived(MoleQueue::IdType,MoleQueue::IdType)),
+          SIGNAL(jobCancellationConfirmationReceived(MoleQueue::IdType,
+                                                     MoleQueue::IdType)),
           this,
-          SLOT(jobCancellationConfirmationReceived(MoleQueue::IdType,MoleQueue::IdType)));
-  connect(m_jsonrpc, SIGNAL(jobStateChangeReceived(MoleQueue::IdType,MoleQueue::JobState,MoleQueue::JobState)),
-          this, SLOT(jobStateChangeReceived(MoleQueue::IdType,MoleQueue::JobState,MoleQueue::JobState)));
+          SLOT(jobCancellationConfirmationReceived(MoleQueue::IdType,
+               MoleQueue::IdType)));
+  connect(m_jsonrpc, SIGNAL(jobStateChangeReceived(MoleQueue::IdType,
+                                                   MoleQueue::JobState,
+                                                   MoleQueue::JobState)),
+          this, SLOT(jobStateChangeReceived(MoleQueue::IdType,
+                     MoleQueue::JobState,MoleQueue::JobState)));
 
   connect(m_jobManager, SIGNAL(jobAboutToBeAdded(MoleQueue::Job*)),
           this, SLOT(jobAboutToBeAdded(MoleQueue::Job*)),
@@ -205,43 +217,6 @@ void Client::jobStateChangeReceived(IdType moleQueueId,
   emit jobStateChanged(req, oldState, newState);
 }
 
-void Client::connectToServer(const QString &serverName)
-{
-  LocalSocketConnection *connection = new LocalSocketConnection(this, serverName);
-  this->setConnection(connection);
-  connection->open();
-  connection->start();
-
-  if (m_connection == NULL) {
-    qWarning() << Q_FUNC_INFO << "Cannot connect to server at" << serverName
-               << ", connection is not set.";
-    return;
-  }
-
-  if (m_connection->isOpen()) {
-    if (m_connection->connectionString() == serverName) {
-      DEBUGOUT("connectToServer") "Socket already connected to" << serverName;
-      return;
-    }
-    else {
-      DEBUGOUT("connectToServer") "Disconnecting from server"
-          << m_connection->connectionString();
-      m_connection->close();
-      delete m_connection;
-    }
-  }
-  if (serverName.isEmpty()) {
-    DEBUGOUT("connectToServer") "No server specified. Not attempting connection.";
-    return;
-  }
-  else {
-    m_connection = new LocalSocketConnection(this, serverName);
-    connection->open();
-    DEBUGOUT("connectToServer") "Client connected to server"
-        << m_connection->connectionString();
-  }
-}
-
 void Client::requestQueueListUpdate()
 {
   PacketType packet = m_jsonrpc->generateQueueListRequest(
@@ -252,6 +227,15 @@ void Client::requestQueueListUpdate()
 Job *Client::newJobRequest()
 {
   return m_jobManager->newJob();
+}
+
+
+void Client::setConnection(Connection *connection)
+{
+  m_connection = connection;
+
+  connect(connection, SIGNAL(newMessage(const MoleQueue::Message)),
+          this, SLOT(readPacket(const MoleQueue::Message)));
 }
 
 }
