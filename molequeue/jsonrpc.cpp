@@ -392,8 +392,11 @@ void JsonRpc::interpretIncomingPacket(Connection* connection,
   // Read packet into a Json value
   Json::Reader reader;
   Json::Value root;
+
   if (!reader.parse(msg.data().constData(), msg.data().constData() + msg.data().size(),
                     root, false)) {
+
+    qDebug() << "msg:  " << msg.data();
     this->handleUnparsablePacket(connection, msg);
     return;
   }

@@ -48,7 +48,7 @@ Server::Server(QObject *parentObject)
     m_queueManager(new QueueManager (this)),
     m_isTesting(false),
     m_moleQueueIdCounter(0),
-    m_debug(false)
+    m_debug(true)
 {
   qRegisterMetaType<ConnectionListener::Error>("ConnectionListener::Error");
   qRegisterMetaType<ServerConnection*>("MoleQueue::ServerConnection*");
@@ -114,17 +114,17 @@ Server::~Server()
 
 void Server::createConnectionListeners()
 {
-  m_serverName = (!m_isTesting) ? "MoleQueue" : "MoleQueue-testing";
-  LocalSocketConnectionListener *localListener = new LocalSocketConnectionListener(this, m_serverName);
-
-  connect(localListener, SIGNAL(newConnection(MoleQueue::Connection *)),
-          this, SLOT(newConnectionAvailable(MoleQueue::Connection *)));
-
-  connect(localListener,
-          SIGNAL(connectionError(MoleQueue::ConnectionListener::Error, const QString&)),
-          this, SIGNAL(connectionError(MoleQueue::ConnectionListener::Error,const QString&)));
-
-  m_connectionListeners.append(localListener);
+  m_serverName = (!m_isTesting) ? "MoleQueue2" : "MoleQueue-testing";
+//  LocalSocketConnectionListener *localListener = new LocalSocketConnectionListener(this, m_serverName);
+//
+//  connect(localListener, SIGNAL(newConnection(MoleQueue::Connection *)),
+//          this, SLOT(newConnectionAvailable(MoleQueue::Connection *)));
+//
+//  connect(localListener,
+//          SIGNAL(connectionError(MoleQueue::ConnectionListener::Error, const QString&)),
+//          this, SIGNAL(connectionError(MoleQueue::ConnectionListener::Error,const QString&)));
+//
+//  m_connectionListeners.append(localListener);
 
 #ifdef USE_ZERO_MQ
 
@@ -360,9 +360,11 @@ void Server::sendQueueList(Connection* connection,
 {
   PacketType packet = m_jsonrpc->generateQueueList(queueList, id);
 
+  qDebug() << "packet: " << packet;
+
   Message msg(to, packet);
 
-  connection->send(packet);
+  connection->send(msg);
 }
 
 void Server::sendSuccessfulSubmissionResponse(MoleQueue::Connection *connection,

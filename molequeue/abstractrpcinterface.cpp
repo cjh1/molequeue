@@ -85,6 +85,7 @@ void AbstractRpcInterface::readPacket(const MoleQueue::Message msg)
 {
   Connection *conn = qobject_cast<Connection*>(this->sender());
   DEBUGOUT("readPacket") "Interpreting new packet.";
+
   m_jsonrpc->interpretIncomingPacket(conn, msg);
 }
 // TODO rename connection => replyConnection?

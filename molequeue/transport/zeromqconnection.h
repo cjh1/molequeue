@@ -48,7 +48,7 @@ public:
   /**
    * Send a message on the connection
    */
-  void send(const Message msg);
+  void send(Message msg);
 
   /**
    * Close the connection. Once a conneciton is closed if can't reused.
@@ -71,11 +71,11 @@ public:
   friend class ZeroMqConnectionListener;
   friend class ZeroMqIdentityWrapper;
 
-private:
-
-  void onMessage(const Message msg);
-  void send(const QString &identity, const PacketType &message);
+private slots:
   void listen();
+
+private:
+  void onMessage(Message msg);
 
   QString m_connectionString;
   zmq::context_t *m_Context;

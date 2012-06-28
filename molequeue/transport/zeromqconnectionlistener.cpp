@@ -32,8 +32,8 @@ ZeroMqConnectionListener::ZeroMqConnectionListener(QObject *parentObject,
     m_Socket(m_Context, ZMQ_ROUTER),
     m_listener(new QTimer(this))
 {
-  // TODO Auto-generated constructor stub
-}
+  connect(m_listener, SIGNAL(timeout()),
+          this, SLOT(listen()));}
 
 ZeroMqConnectionListener::~ZeroMqConnectionListener()
 {
@@ -47,13 +47,14 @@ void ZeroMqConnectionListener::start()
   QString ipcString = "ipc://" + m_connectionString;
 
   QByteArray ba = ipcString.toLocal8Bit();
+
+  qDebug() << "ba: " << ba.data();
+
   m_Socket.bind(ba.data());
-  connect(m_listener, SIGNAL(timeout()),
-          this, SLOT(listen()));
   m_listener->start(100);
 
   // TODO Should this just be part of the class?
-  m_connection = new ZeroMqConnection(this, m_connectionString);
+  m_connection = new ZeroMqConnection(this, &m_Context, &m_Socket);
   //      m_ConnectionMap.insert(identity, connection);
   emit newConnection(m_connection);
 
@@ -77,26 +78,38 @@ QString ZeroMqConnectionListener::connectionString()
 
 void ZeroMqConnectionListener::listen()
 {
-  qDebug() << "listen";
+  qDebug() << "listen2";
   zmq::message_t address;
-  zmq::pollitem_t items[1] = { { m_Socket, 0, ZMQ_POLLIN, 0 } };
 
-  zmq::poll (&items[0], 1, 10);
-
-  if(items[0].revents & ZMQ_POLLIN) {
+  if (m_Socket.recv(&address, ZMQ_NOBLOCK)) {
 
     int size = address.size();
     QString replyTo = QString::fromLocal8Bit(static_cast<char*>(address.data()),
                                               size);
 
-    // Receive the empty message
-    zmq::message_t empty;
-    m_Socket.recv(&empty);
-    assert(empty.size() == 0);
+    qDebug() << "message received: " << replyTo;
+
+//    // Receive the empty message
+//    zmq::message_t empty;
+//
+//
+//    if(!m_Socket.recv(&empty, ZMQ_NOBLOCK)) {
+//      qDebug() << "Error no empty message";
+//      return;
+//    }
+//
+//    qDebug() << empty.size();
+//
+//
+//    assert(empty.size() == 0);
 
     // Now receive the message
     zmq::message_t message;
-    m_Socket.recv(&message);
+    if(!m_Socket.recv(&message, ZMQ_NOBLOCK)) {
+      qDebug() << "Error not message body";
+      return;
+    }
+
     size = message.size();
     QString packetString = QString::fromLocal8Bit(static_cast<char*>(message.data()),
                                                   size);
@@ -110,6 +123,7 @@ void ZeroMqConnectionListener::listen()
     QString to = QString::fromLocal8Bit(static_cast<char*>(to_id),
                                                 sz);
 
+    qDebug() << "replyTo: " << replyTo;
     Message msg(to, replyTo, packet);
 
     m_connection->onMessage(msg);

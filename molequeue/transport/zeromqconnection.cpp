@@ -27,7 +27,8 @@ ZeroMqConnection::ZeroMqConnection(QObject *parentObject,
 : Connection(parentObject),
   m_Context(context),
   m_Socket(socket),
-  m_connected(true)
+  m_connected(true),
+  m_listener(NULL)
 {
 
 }
@@ -35,28 +36,31 @@ ZeroMqConnection::ZeroMqConnection(QObject *parentObject,
 
 ZeroMqConnection::ZeroMqConnection(QObject *parentObject, const QString &address)
 : Connection(parentObject),
-  m_connectionString(address),
+  m_connectionString("ipc://" + address),
   m_Context(new zmq::context_t(1)),
-  m_Socket(new zmq::socket_t(*m_Context, ZMQ_ROUTER)),
+  m_Socket(new zmq::socket_t(*m_Context, ZMQ_DEALER)),
   m_connected(false),
   m_listener(new QTimer())
 {
-
+  connect(m_listener, SIGNAL(timeout()),
+          this, SLOT(listen()));
+  m_Socket->setsockopt(ZMQ_IDENTITY, "A", 1);
 }
 
 ZeroMqConnection::~ZeroMqConnection()
     {
     }
 
-  void ZeroMqConnection::onMessage(const Message msg)
+  void ZeroMqConnection::onMessage(Message msg)
     {
-    newMessage(msg);
+    emit newMessage(msg);
     }
 
   void ZeroMqConnection::open()
     {
     if (m_Socket) {
     QByteArray ba = m_connectionString.toLocal8Bit();
+    qDebug() << "client ba: " << ba.data();
     m_Socket->connect(ba.data());
     m_connected = true;
     }
@@ -87,39 +91,36 @@ ZeroMqConnection::~ZeroMqConnection()
     return m_connectionString;
     }
 
-void ZeroMqConnection::send(const Message msg)
+void ZeroMqConnection::send(Message msg)
 {
+  qDebug() << msg.data().size();
+  qDebug() << msg.data();
   zmq::message_t message(msg.data().size());
   memcpy(message.data(), msg.data().constData(), msg.data().size());
 
   // If on the server side send the endpoint id first
-  if (m_listener) {
-
-
+  if (!m_listener) {
+    qDebug() << "Server sending message to: " << msg.to();
     zmq::message_t identity(msg.to().size());
     memcpy(identity.data(), msg.to().data(), msg.to().size());
-    m_Socket->send(identity, ZMQ_SNDMORE | ZMQ_NOBLOCK);
-    zmq::message_t empty;
-    bool rc  = m_Socket->send(empty, ZMQ_NOBLOCK);
+    bool rc  = m_Socket->send(identity,ZMQ_SNDMORE | ZMQ_NOBLOCK);
 
-    //TODO check rc.
-
+    qDebug() << "rc=" << rc;
   }
 
   // Send message body
   bool rc = m_Socket->send(message, ZMQ_NOBLOCK);
+  qDebug() << "rc=" << rc;
 }
 
 void ZeroMqConnection::listen()
 {
+  qDebug() << "Connection:listen";
   zmq::message_t message;
-  zmq::pollitem_t items[1] = { { *m_Socket, 0, ZMQ_POLLIN, 0 } };
 
-  zmq::poll (&items[0], 1, 10);
+  if(m_Socket->recv(&message, ZMQ_NOBLOCK)) {
 
-  if(items[0].revents & ZMQ_POLLIN) {
-
-    m_Socket->recv(&message, ZMQ_NOBLOCK);
+    qDebug() << "Client recieved message: " << message.size();
 
     int size = message.size();
     PacketType messageBuffer;
@@ -128,7 +129,9 @@ void ZeroMqConnection::listen()
     messageBuffer.append(QString::fromLocal8Bit(static_cast<char*>(message.data()),
                                                 size));
 
-    emit newMessage(messageBuffer);
+    Message msg(messageBuffer);
+
+    emit newMessage(msg);
   }
 }
 

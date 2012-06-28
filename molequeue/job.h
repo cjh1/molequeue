@@ -26,7 +26,7 @@
 class ClientTest;
 class JobManagerTest;
 class JsonRpcTest;
-class ServerConnectionTest;
+class ZeroMqConnectionTest;
 
 namespace MoleQueue
 {
@@ -154,7 +154,7 @@ public:
   friend class ::ClientTest;
   friend class ::JobManagerTest;
   friend class ::JsonRpcTest;
-  friend class ::ServerConnectionTest;
+  friend class ::ZeroMqConnectionTest;
 
 protected:
   /// @param path Temporary working directory where files are stored during job

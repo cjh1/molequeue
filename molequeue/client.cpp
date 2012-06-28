@@ -38,7 +38,8 @@ Client::Client(QObject *parentObject) :
   AbstractRpcInterface(parentObject),
   m_jobManager(new JobManager(this)),
   m_submittedLUT(new PacketLookupTable ()),
-  m_canceledLUT(new PacketLookupTable ())
+  m_canceledLUT(new PacketLookupTable ()),
+  m_connection(NULL)
 {
   qRegisterMetaType<Job*>("MoleQueue::Job*");
   qRegisterMetaType<const Job*>("const MoleQueue::Job*");
@@ -221,7 +222,10 @@ void Client::requestQueueListUpdate()
 {
   PacketType packet = m_jsonrpc->generateQueueListRequest(
         this->nextPacketId());
-  m_connection->send(packet);
+
+  Message msg(packet);
+
+  m_connection->send(msg);
 }
 
 Job *Client::newJobRequest()

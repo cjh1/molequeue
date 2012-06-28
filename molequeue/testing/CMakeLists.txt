@@ -23,6 +23,7 @@ set(MyTests
   queue
   queuemanager
   server
+  zeromqconnection
   #serverconnection
   sge
   )

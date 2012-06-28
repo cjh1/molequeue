@@ -14,14 +14,15 @@ if(USE_ZERO_MQ)
   include_directories(${ZeroMQ_INCLUDE_DIR})
   set(mq_zeromq_srcs
     transport/zeromqconnection.cpp
-    transport/zeromqconnectionlistener.cpp)
+    transport/zeromqconnectionlistener.cpp
+    zeromqclient.cpp)
   set(mq_zeromq_moc
     transport/zeromqconnection.h
-    transport/zeromqconnectionlistener.h)
-#    transport/zeromqidentitywrapper.h)
+    transport/zeromqconnectionlistener.h
+    zeromqclient.h)
   set(mqclient_zeromq_srcs
-    transport/zeromqconnection.cpp)
- #   transport/zeromqidentitywrapper.cpp)
+    transport/zeromqconnection.cpp
+    zeromqclient.cpp)
   set(mqclient_zeromq_moc
     transport/zeromqconnection.h)
   add_definitions(-DUSE_ZERO_MQ)

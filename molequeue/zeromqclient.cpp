@@ -14,22 +14,20 @@
 
  ******************************************************************************/
 
-#include "localsocketclient.h"
-#include "connection.h"
-#include "transport/localsocketconnection.h"
+#include "zeromqclient.h"
+#include "transport/zeromqconnection.h"
+
 
 namespace MoleQueue
-{
+  {
 
-LocalSocketClient::LocalSocketClient(QObject *parentObject)
-  : Client(parentObject)
+ZeroMqClient::ZeroMqClient(QObject *parentObject)
+: Client(parentObject)
 {
 
 }
 
-
-
-void LocalSocketClient::connectToServer(const QString &serverName)
+void ZeroMqClient::connectToServer(const QString &serverName)
 {
 
   if (m_connection && m_connection->isOpen()) {
@@ -53,7 +51,8 @@ void LocalSocketClient::connectToServer(const QString &serverName)
       return;
     }
     else {
-      LocalSocketConnection *connection = new LocalSocketConnection(this, serverName);
+      qDebug() << serverName;
+      ZeroMqConnection *connection = new ZeroMqConnection(this, serverName);
       this->setConnection(connection);
       connection->open();
       connection->start();
@@ -62,6 +61,5 @@ void LocalSocketClient::connectToServer(const QString &serverName)
     }
   }
 }
-
 
 } /* namespace MoleQueue */

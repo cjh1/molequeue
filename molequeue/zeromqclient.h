@@ -14,18 +14,17 @@
 
  ******************************************************************************/
 
-#ifndef LOCALSOCKETCLIENT_H_
-#define LOCALSOCKETCLIENT_H_
+#ifndef ZEROMQCLIENT_H_
+#define ZEROMQCLIENT_H_
 
 #include "client.h"
 
 namespace MoleQueue
-  {
-
-  class LocalSocketClient: public MoleQueue::Client
+{
+class ZeroMqClient : public MoleQueue::Client
   {
   public:
-    explicit LocalSocketClient(QObject *parentObject = 0);
+    explicit ZeroMqClient(QObject *parentObject = 0);
 
     /**
      * Connect to the server.
@@ -37,4 +36,4 @@ namespace MoleQueue
   };
 
   } /* namespace MoleQueue */
-#endif /* LOCALSOCKETCLIENT_H_ */
+#endif /* ZEROMQCLIENT_H_ */
