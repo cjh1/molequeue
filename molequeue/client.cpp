@@ -18,8 +18,7 @@
 
 #include "jobmanager.h"
 #include "jsonrpc.h"
-#include "transport/localsocketconnection.h"
-
+#include "transport/connection.h"
 #include <QtCore/QDateTime>
 #include <QtCore/QDebug>
 #include <QtCore/QDir>

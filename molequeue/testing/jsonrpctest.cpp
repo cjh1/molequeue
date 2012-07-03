@@ -22,7 +22,7 @@
 #include "queuemanager.h"
 #include "queues/local.h"
 #include "queues/sge.h"
-#include "connection.h"
+#include "transport/connection.h"
 
 #include <json/json.h>
 

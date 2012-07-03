@@ -21,12 +21,8 @@
 #include "jobmanager.h"
 #include "queue.h"
 #include "queuemanager.h"
-#include "serverconnection.h"
-#include "transport/localsocketconnectionlistener.h"
-
-#ifdef USE_ZERO_MQ
-#include "transport/zeromqconnectionlistener.h"
-#endif
+#include "pluginmanager.h"
+#include "transport/connectionlistenerfactory.h"
 
 #include <QtCore/QDateTime>
 #include <QtCore/QDebug>
@@ -42,13 +38,14 @@
 namespace MoleQueue
 {
 
-Server::Server(QObject *parentObject)
+Server::Server(QObject *parentObject, QString serverName)
   : AbstractRpcInterface(parentObject),
     m_jobManager(new JobManager (this)),
     m_queueManager(new QueueManager (this)),
     m_isTesting(false),
     m_moleQueueIdCounter(0),
-    m_debug(true)
+    m_debug(true),
+    m_serverName(serverName)
 {
   qRegisterMetaType<ConnectionListener::Error>("ConnectionListener::Error");
   qRegisterMetaType<ServerConnection*>("MoleQueue::ServerConnection*");
@@ -96,9 +93,9 @@ Server::Server(QObject *parentObject)
   //connect(m_connection, SIGNAL(disconnected()),
   //        this, SIGNAL(disconnected()));
 
-  // Route error messages back into this object's handler:
-  connect(this, SIGNAL(errorOccurred(MoleQueue::Error)),
-          this, SLOT(handleError(MoleQueue::Error)));
+  // load the transport plugins so we know what to listener on
+  PluginManager *pluginManager = PluginManager::instance();
+  pluginManager->load();
 }
 
 Server::~Server()
@@ -114,33 +111,24 @@ Server::~Server()
 
 void Server::createConnectionListeners()
 {
-  m_serverName = (!m_isTesting) ? "MoleQueue2" : "MoleQueue-testing";
-//  LocalSocketConnectionListener *localListener = new LocalSocketConnectionListener(this, m_serverName);
-//
-//  connect(localListener, SIGNAL(newConnection(MoleQueue::Connection *)),
-//          this, SLOT(newConnectionAvailable(MoleQueue::Connection *)));
-//
-//  connect(localListener,
-//          SIGNAL(connectionError(MoleQueue::ConnectionListener::Error, const QString&)),
-//          this, SIGNAL(connectionError(MoleQueue::ConnectionListener::Error,const QString&)));
-//
-//  m_connectionListeners.append(localListener);
+  PluginManager *pluginManager = PluginManager::instance();
+  QList<ConnectionListenerFactory *> factories =
+    pluginManager->connectionListenerFactories();
 
-#ifdef USE_ZERO_MQ
+  foreach(ConnectionListenerFactory *factory, factories) {
+    ConnectionListener *listener = factory->createConnectionListener(this,
+                                                                     m_serverName);
+    connect(listener, SIGNAL(connectionError(MoleQueue::ConnectionListener::Error,
+                                             const QString&)),
+            this, SIGNAL(connectionError(MoleQueue::ConnectionListener::Error,
+                                             const QString&)));
 
-  ZeroMqConnectionListener *zeroListener = new ZeroMqConnectionListener(this, m_serverName);
+    connect(listener, SIGNAL(newConnection(MoleQueue::Connection*)),
+            this, SLOT(newConnectionAvailable(MoleQueue::Connection*)));
 
-  connect(zeroListener, SIGNAL(newConnection(MoleQueue::Connection *)),
-          this, SLOT(newConnectionAvailable(MoleQueue::Connection *)));
+    m_connectionListeners.append(listener);
 
-  connect(zeroListener,
-          SIGNAL(connectionError(MoleQueue::ConnectionListener::Error, const QString&)),
-          this, SIGNAL(connectionError(MoleQueue::ConnectionListener::Error,const QString&)));
-
-  m_connectionListeners.append(zeroListener);
-
-#endif
-
+  }
 }
 
 void Server::readSettings(QSettings &settings)
@@ -205,6 +193,7 @@ void Server::stop()
 {
   stop(false);
 }
+
 void Server::dispatchJobStateChange(const Job *job, JobState oldState,
                                     JobState newState)
 {
@@ -255,35 +244,6 @@ void Server::queueListRequestReceived(MoleQueue::Connection *connection,
                                       MoleQueue::IdType id)
 {
   sendQueueList(connection, replyTo, id, m_queueManager->toQueueList());
-}
-
-void Server::jobSubmissionRequested(const Job *req)
-{
-  ServerConnection *conn = qobject_cast<ServerConnection*>(this->sender());
-  if (conn == NULL) {
-    qWarning() << Q_FUNC_INFO << "called with a sender which is not a "
-                  "ServerConnection.";
-    return;
-  }
-
-  qDebug() << "Job submission requested:\n" << req->hash();
-
-  // Lookup queue and submit job.
-  Queue *queue = m_queueManager->lookupQueue(req->queue());
-  if (!queue) {
-    conn->sendFailedSubmissionResponse(req, MoleQueue::InvalidQueue,
-                                       tr("Unknown queue: %1")
-                                       .arg(req->queue()));
-    return;
-  }
-
-  // Send the submission confirmation first so that the client can update the
-  // MoleQueue id and properly handle packets sent during job submission.
-  conn->sendSuccessfulSubmissionResponse(req);
-
-  /// @todo Handle submission failures better -- return JobSubErrCode?
-  bool ok = queue->submitJob(req);
-  qDebug() << "Submission ok?" << ok;
 }
 
 void Server::jobCancellationRequestReceived(MoleQueue::Connection *connection,
@@ -431,7 +391,7 @@ void Server::sendSuccessfulCancellationResponse(MoleQueue::Connection *connectio
 
   Message msg(replyTo, packet);
 
-  connection->send(packet);
+  connection->send(msg);
 }
 
 void Server::sendJobStateChangeNotification(MoleQueue::Connection *connection,

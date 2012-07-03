@@ -19,7 +19,7 @@
 #include "abstractrpcinterface.h"
 #include "molequeueglobal.h"
 #include "testserver.h"
-#include "transport/localsocketconnection.h"
+#include "transport/localsocket/localsocketconnection.h"
 
 #include <QtNetwork/QLocalSocket>
 

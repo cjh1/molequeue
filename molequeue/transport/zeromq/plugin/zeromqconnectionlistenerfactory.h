@@ -14,26 +14,25 @@
 
  ******************************************************************************/
 
-#ifndef ZEROMQCLIENT_H_
-#define ZEROMQCLIENT_H_
+#ifndef ZEROMQCONNECTIONLISTENERFACTORY_H_
+#define ZEROMQCONNECTIONLISTENERFACTORY_H_
 
-#include "client.h"
+#include "transport/connectionlistenerfactory.h"
 
 namespace MoleQueue
 {
-class ZeroMqClient : public MoleQueue::Client
-  {
-  public:
-    explicit ZeroMqClient(QObject *parentObject = 0);
 
-    /**
-     * Connect to the server.
-     *
-     * @param serverName Name of the socket to connect through. Typically
-     * "MoleQueue" -- do not change this unless you know what you are doing.
-     */
-    void connectToServer(const QString &serverName = "MoleQueue");
-  };
+class ZeroMqConnectionListenerFactory: public QObject,
+                                       public MoleQueue::ConnectionListenerFactory
+{
+  Q_OBJECT
+  Q_INTERFACES(MoleQueue::ConnectionListenerFactory)
+public:
+  ZeroMqConnectionListenerFactory();
+  ConnectionListener *createConnectionListener(QObject *parentObject = 0,
+                                               QString connectionString = "MoleQueue");
+};
 
-  } /* namespace MoleQueue */
-#endif /* ZEROMQCLIENT_H_ */
+} /* namespace MoleQueue */
+
+#endif /* ZEROMQCONNECTIONLISTENERFACTORY_H_ */

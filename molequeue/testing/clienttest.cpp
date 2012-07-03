@@ -19,7 +19,7 @@
 #include "job.h"
 #include "jobmanager.h"
 #include "molequeueglobal.h"
-#include "localsocketclient.h"
+#include "transport/localsocket/localsocketclient.h"
 
 #include "testserver.h"
 
@@ -76,7 +76,7 @@ MoleQueue::PacketType ClientTest::readReferenceString(const QString &filename)
 void ClientTest::initTestCase()
 {
   m_server = new TestServer(&m_packet);
-  m_client = new MoleQueue::LocalSocketClient();
+  m_client = new MoleQueue::LocalSocketClient(this);
   qDebug() << m_server->socketName();
   m_client->connectToServer(m_server->socketName());
   // Let the event loop run a bit to handle the connections

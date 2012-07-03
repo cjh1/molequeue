@@ -14,15 +14,29 @@
 
  ******************************************************************************/
 
-#include "localsockeendpointid.h"
+#ifndef LOCALSOCKETCLIENT_H_
+#define LOCALSOCKETCLIENT_H_
+
+#include "mqlocalsocketclientexport.h"
+#include "client.h"
 
 namespace MoleQueue
 {
 
-LocalSockeEndpointId::LocalSockeEndpointId(const LocalSocketConnection* connection)
-  : m_connection(connection)
+class MQLOCALSOCKETCLIENT_EXPORT LocalSocketClient: public MoleQueue::Client
 {
+public:
+  explicit LocalSocketClient(QObject *parentObject = 0);
 
-}
+  /**
+   * Connect to the server.
+   *
+   * @param serverName Name of the socket to connect through. Typically
+   * "MoleQueue" -- do not change this unless you know what you are doing.
+   */
+  void connectToServer(const QString &serverName = "MoleQueue");
+};
 
 } /* namespace MoleQueue */
+
+#endif /* LOCALSOCKETCLIENT_H_ */

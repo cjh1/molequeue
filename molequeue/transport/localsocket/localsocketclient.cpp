@@ -15,8 +15,7 @@
  ******************************************************************************/
 
 #include "localsocketclient.h"
-#include "connection.h"
-#include "transport/localsocketconnection.h"
+#include "localsocketconnection.h"
 
 namespace MoleQueue
 {

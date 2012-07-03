@@ -10,6 +10,8 @@ include(CompilerFlags)
 
 option(ENABLE_TESTING "Enable testing" OFF)
 
+option(BUILD_SHARED_LIBS "Build with shared libraries" ON)
+
 if(ENABLE_TESTING)
   include(CTest)
   enable_testing()

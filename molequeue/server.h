@@ -17,13 +17,12 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include "object.h"
-
 #include "molequeueglobal.h"
-#include "connectionlistener.h"
+#include "transport/connectionlistener.h"
 #include "jsonrpc.h"
 #include "abstractrpcinterface.h"
 
+#include <QtCore/QObject>
 #include <QtCore/QList>
 
 class ServerTest;
@@ -38,7 +37,6 @@ class JobManager;
 class QueueManager;
 class ServerConnection;
 class Connection;
-class ConnectionListener;
 
 /**
  * @class Server server.h <molequeue/server.h>
@@ -62,12 +60,12 @@ public:
    *
    * @param parentObject The parent.
    */
-  explicit Server(QObject *parentObject = 0);
+  explicit Server(QObject *parentObject = 0, QString serverName = "MoleQueue");
 
   /**
    * Destructor.
    */
-  virtual ~Server();
+  ~Server();
 
   /**
    * @return A pointer to the Server JobManager.
@@ -108,7 +106,6 @@ public:
 
 signals:
 
-
   /**
    * Emitted when an error occurs.
    *
@@ -123,6 +120,13 @@ signals:
    */
   void disconnected();
 
+  /**
+   * Emitted when a non-critical error occurs that the user should be notified
+   * of.
+   * @param title Title of the error message
+   * @param message Details of the error.
+   */
+  void errorNotification(const QString &title, const QString &message);
 
 public slots:
 
@@ -156,6 +160,12 @@ public slots:
   void dispatchJobStateChange(const MoleQueue::Job *job,
                               MoleQueue::JobState oldState,
                               MoleQueue::JobState newState);
+
+  /**
+   * Reimplemented from Object. Emits errorNotification.
+   * @param err Error object describing the error.
+   */
+  virtual void handleError(const Error &err);
 
   /**
    * Sends the @a list to the connected client.
@@ -329,10 +339,6 @@ private:
 protected:
   /// Toggles runtime debugging
   bool m_debug;
-
-private:
-  void createConnectionListener();
-  QString m_serverName;
 };
 
 } // end namespace MoleQueue

@@ -17,6 +17,7 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
+#include "mqconnectionexport.h"
 #include "molequeueglobal.h"
 #include "message.h"
 
@@ -32,7 +33,7 @@ namespace MoleQueue
  * communicate between MoleQueue processes. Subclasses provide concrete
  * implements for example based on local socket @see LocalSocketConnection
  */
-class Connection : public QObject
+class MQCONNECTION_EXPORT Connection : public QObject
 {
   Q_OBJECT
 public:

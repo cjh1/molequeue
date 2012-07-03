@@ -14,34 +14,29 @@
 
  ******************************************************************************/
 
-#ifndef MESSAGE_H_
-#define MESSAGE_H_
+#ifndef ZEROMQCLIENT_H_
+#define ZEROMQCLIENT_H_
 
-#include "molequeueglobal.h"
+#include "mqzeromqclientexport.h"
+#include "client.h"
 
 namespace MoleQueue
 {
 
-typedef QString EndpointId;
-
-class Message
+class MQZEROMQCLIENT_EXPORT ZeroMqClient : public MoleQueue::Client
 {
 public:
-  Message(PacketType data);
-  Message(EndpointId to, EndpointId replyTo, PacketType data);
-  Message(EndpointId to, PacketType data);
+  explicit ZeroMqClient(QObject *parentObject = 0);
 
-  EndpointId to() const;
-  EndpointId replyTo() const;
-  PacketType data() const;
-
-private:
-  EndpointId m_to;
-  EndpointId m_replyTo;
-  PacketType m_data;
-
+  /**
+   * Connect to the server.
+   *
+   * @param serverName Name of the socket to connect through. Typically
+   * "MoleQueue" -- do not change this unless you know what you are doing.
+   */
+  void connectToServer(const QString &serverName = "MoleQueue");
 };
 
 } /* namespace MoleQueue */
 
-#endif /* MESSAGE_H_ */
+#endif /* ZEROMQCLIENT_H_ */

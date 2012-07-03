@@ -14,27 +14,27 @@
 
  ******************************************************************************/
 
-#ifndef LOCALSOCKETCLIENT_H_
-#define LOCALSOCKETCLIENT_H_
+
+#include <QtTest>
+#include "testserver.h"
 
 #include "client.h"
+#include "connectiontest.h"
+#include "transport/localsocket/localsocketclient.h"
 
-namespace MoleQueue
-  {
+class LocalSocketConnectionTest: public ConnectionTest
+{
+protected:
+  MoleQueue::Client *createClient();
 
-  class LocalSocketClient: public MoleQueue::Client
-  {
-  public:
-    explicit LocalSocketClient(QObject *parentObject = 0);
+};
 
-    /**
-     * Connect to the server.
-     *
-     * @param serverName Name of the socket to connect through. Typically
-     * "MoleQueue" -- do not change this unless you know what you are doing.
-     */
-    void connectToServer(const QString &serverName = "MoleQueue");
-  };
+MoleQueue::Client *LocalSocketConnectionTest::createClient()
+{
+  return new MoleQueue::LocalSocketClient(this);
+}
 
-  } /* namespace MoleQueue */
-#endif /* LOCALSOCKETCLIENT_H_ */
+QTEST_MAIN(LocalSocketConnectionTest)
+
+#include "moc_localsocketconnectiontest.cxx"
+

@@ -17,7 +17,7 @@
 #ifndef LOCALSOCKETCONNECTIONLISTENER_H_
 #define LOCALSOCKETCONNECTIONLISTENER_H_
 
-#include "../connectionlistener.h"
+#include "transport/connectionlistener.h"
 
 #include <QtNetwork/QAbstractSocket>
 

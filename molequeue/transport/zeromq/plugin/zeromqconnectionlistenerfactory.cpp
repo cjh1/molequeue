@@ -14,43 +14,24 @@
 
  ******************************************************************************/
 
-#include "zeromqidentitywrapper.h"
+#include "zeromqconnectionlistenerfactory.h"
+
+#include "../zeromqconnectionlistener.h"
 
 namespace MoleQueue
 {
 
-ZeroMqIdentityWrapper::ZeroMqIdentityWrapper(ZeroMqConnection *connection,
-                                             QString identity)
-  : m_connection(connection),
-    m_identity(identity)
+ZeroMqConnectionListenerFactory::ZeroMqConnectionListenerFactory()
 {
 
 }
 
-ZeroMqIdentityWrapper::~ZeroMqIdentityWrapper()
+ConnectionListener *ZeroMqConnectionListenerFactory::createConnectionListener(QObject *parentObject,
+                                                                              QString connectionString)
 {
-
+  return new ZeroMqConnectionListener(parentObject, "ipc://" + connectionString);
 }
-
-void ZeroMqIdentityWrapper::send(const PacketType& packet)
-{
-  m_connection->send(m_identity, packet);
-}
-
-bool ZeroMqIdentityWrapper::isOpen()
-{
-  return m_connection->isOpen();
-}
-
-QString ZeroMqIdentityWrapper::connectionString()
-{
-  return m_identity;
-}
-
-void ZeroMqIdentityWrapper::onMessage(const PacketType &message)
-{
-    emit newMessage(message);
-}
-
 
 } /* namespace MoleQueue */
+
+Q_EXPORT_PLUGIN2(zeromq, MoleQueue::ZeroMqConnectionListenerFactory)

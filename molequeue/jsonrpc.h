@@ -18,7 +18,7 @@
 #define JSONRPC_H
 
 #include "molequeueglobal.h"
-#include "message.h"
+#include "transport/message.h"
 #include <json/json-forwards.h>
 
 #include <QtCore/QMetaType>

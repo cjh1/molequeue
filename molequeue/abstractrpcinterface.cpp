@@ -17,8 +17,8 @@
 #include "abstractrpcinterface.h"
 
 #include "jsonrpc.h"
-#include "connection.h"
-#include "message.h"
+#include "transport/connection.h"
+#include "transport/message.h"
 
 #include <QtCore/QDataStream>
 #include <QtCore/QDateTime>
@@ -84,6 +84,10 @@ AbstractRpcInterface::~AbstractRpcInterface()
 void AbstractRpcInterface::readPacket(const MoleQueue::Message msg)
 {
   Connection *conn = qobject_cast<Connection*>(this->sender());
+
+  qDebug() << "sender:  " << this->sender();
+  qDebug() << "Conn: " << conn;
+
   DEBUGOUT("readPacket") "Interpreting new packet.";
 
   m_jsonrpc->interpretIncomingPacket(conn, msg);

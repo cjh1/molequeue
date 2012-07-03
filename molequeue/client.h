@@ -92,6 +92,7 @@ public:
 
   /// Used for unit testing
   friend class ::ClientTest;
+  friend class ::ConnectionTest;
 
 signals:
 
@@ -143,7 +144,7 @@ public slots:
    * @param serverName Name of the socket to connect through. Typically
    * "MoleQueue" -- do not change this unless you know what you are doing.
    */
-  virtual void connectToServer(const QString &serverName) = 0;
+  virtual void connectToServer(const QString &serverName = "MoleQueue") = 0;
 
   /**
    * Request a list of Queues and Programs from the server.

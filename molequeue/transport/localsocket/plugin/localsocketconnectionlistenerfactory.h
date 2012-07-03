@@ -14,33 +14,28 @@
 
  ******************************************************************************/
 
-#ifndef ZEROMQIDENTITYCONNECTION_H_
-#define ZEROMQIDENTITYCONNECTION_H_
+#ifndef LOCALSOCKETCONNECTIONLISTENERFACTORY_H_
+#define LOCALSOCKETCONNECTIONLISTENERFACTORY_H_
 
-#include "zeromqconnection.h"
+#include "../../connectionlistenerfactory.h"
+#include "../../connectionlistener.h"
 
 namespace MoleQueue
 {
 
-class ZeroMqIdentityWrapper: public MoleQueue::Connection
+class LocalSocketConnectionListenerFactory: public QObject,
+                                            public MoleQueue::ConnectionListenerFactory
 {
+  Q_OBJECT
+  Q_INTERFACES(MoleQueue::ConnectionListenerFactory)
 public:
-  ZeroMqIdentityWrapper(ZeroMqConnection *connection, QString identity);
-  ~ZeroMqIdentityWrapper();
+  LocalSocketConnectionListenerFactory();
+  ~LocalSocketConnectionListenerFactory();
+  ConnectionListener *createConnectionListener(QObject *parentObject,
+                                                 QString connectionString = "MoleQueue");
 
-  void open() {};
-  void start() {};
-  void send(const PacketType &packet);
-  void close() {};
-  bool isOpen();
-  QString connectionString();
-
-private:
-  void onMessage(const PacketType &message);
-  ZeroMqConnection *m_connection;
-  QString m_identity;
 };
 
 } /* namespace MoleQueue */
 
-#endif /* ZEROMQIDENTITYCONNECTION_H_ */
+#endif /* LOCALSOCKETCONNECTIONLISTENERFACTORY_H_ */

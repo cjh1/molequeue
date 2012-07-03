@@ -15,7 +15,7 @@
  ******************************************************************************/
 
 #include "zeromqclient.h"
-#include "transport/zeromqconnection.h"
+#include "zeromqconnection.h"
 
 
 namespace MoleQueue
@@ -52,7 +52,7 @@ void ZeroMqClient::connectToServer(const QString &serverName)
     }
     else {
       qDebug() << serverName;
-      ZeroMqConnection *connection = new ZeroMqConnection(this, serverName);
+      ZeroMqConnection *connection = new ZeroMqConnection(this, "ipc://" + serverName);
       this->setConnection(connection);
       connection->open();
       connection->start();

@@ -44,11 +44,7 @@ void ZeroMqConnectionListener::start()
 {
   qDebug() << "Connecting to " << m_connectionString;
 
-  QString ipcString = "ipc://" + m_connectionString;
-
-  QByteArray ba = ipcString.toLocal8Bit();
-
-  qDebug() << "ba: " << ba.data();
+  QByteArray ba = m_connectionString.toLocal8Bit();
 
   m_Socket.bind(ba.data());
   m_listener->start(100);
@@ -84,24 +80,9 @@ void ZeroMqConnectionListener::listen()
   if (m_Socket.recv(&address, ZMQ_NOBLOCK)) {
 
     int size = address.size();
-    QString replyTo = QString::fromLocal8Bit(static_cast<char*>(address.data()),
-                                              size);
 
-    qDebug() << "message received: " << replyTo;
-
-//    // Receive the empty message
-//    zmq::message_t empty;
-//
-//
-//    if(!m_Socket.recv(&empty, ZMQ_NOBLOCK)) {
-//      qDebug() << "Error no empty message";
-//      return;
-//    }
-//
-//    qDebug() << empty.size();
-//
-//
-//    assert(empty.size() == 0);
+    EndpointId replyTo(static_cast<char*>(address.data()),
+                       size);
 
     // Now receive the message
     zmq::message_t message;
@@ -111,20 +92,11 @@ void ZeroMqConnectionListener::listen()
     }
 
     size = message.size();
-    QString packetString = QString::fromLocal8Bit(static_cast<char*>(message.data()),
-                                                  size);
+    PacketType packet(static_cast<char*>(message.data()),
+                      size);
+    //packet.append(packetString);
 
-    PacketType packet;
-    packet.append(packetString);
-
-    char to_id[255];
-    size_t sz = 255;
-    m_Socket.getsockopt(ZMQ_IDENTITY, to_id, &sz);
-    QString to = QString::fromLocal8Bit(static_cast<char*>(to_id),
-                                                sz);
-
-    qDebug() << "replyTo: " << replyTo;
-    Message msg(to, replyTo, packet);
+    Message msg(EndpointId(), replyTo, packet);
 
     m_connection->onMessage(msg);
   }

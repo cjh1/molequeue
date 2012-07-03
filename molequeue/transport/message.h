@@ -14,23 +14,35 @@
 
  ******************************************************************************/
 
-#ifndef LOCALSOCKEENDPOINTID_H_
-#define LOCALSOCKEENDPOINTID_H_
+#ifndef MESSAGE_H_
+#define MESSAGE_H_
 
-#include <connection.h>
+#include "mqconnectionexport.h"
+#include "molequeueglobal.h"
 
 namespace MoleQueue
 {
 
-class LocalSockeEndpointId: public MoleQueue::EndpointId
+typedef QByteArray EndpointId;
+
+class MQCONNECTION_EXPORT Message
 {
 public:
-  LocalSockeEndpointId(const LocalSocketConnection* connection);
+  Message(PacketType data);
+  Message(EndpointId to, EndpointId replyTo, PacketType data);
+  Message(EndpointId to, PacketType data);
+
+  EndpointId to() const;
+  EndpointId replyTo() const;
+  PacketType data() const;
 
 private:
-  LocalSocketConnection* m_connection;
+  EndpointId m_to;
+  EndpointId m_replyTo;
+  PacketType m_data;
+
 };
 
 } /* namespace MoleQueue */
 
-#endif /* LOCALSOCKEENDPOINTID_H_ */
+#endif /* MESSAGE_H_ */

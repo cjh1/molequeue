@@ -14,9 +14,10 @@
 
 ******************************************************************************/
 
-#include "../abstractrpcinterface.h"
 #include "localsocketconnection.h"
-#include "../message.h"
+
+#include "abstractrpcinterface.h"
+#include "transport/message.h"
 
 #include <QtCore/QDateTime>
 #include <QtCore/QDebug>

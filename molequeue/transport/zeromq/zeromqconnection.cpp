@@ -36,7 +36,7 @@ ZeroMqConnection::ZeroMqConnection(QObject *parentObject,
 
 ZeroMqConnection::ZeroMqConnection(QObject *parentObject, const QString &address)
 : Connection(parentObject),
-  m_connectionString("ipc://" + address),
+  m_connectionString(address),
   m_Context(new zmq::context_t(1)),
   m_Socket(new zmq::socket_t(*m_Context, ZMQ_DEALER)),
   m_connected(false),
@@ -44,7 +44,6 @@ ZeroMqConnection::ZeroMqConnection(QObject *parentObject, const QString &address
 {
   connect(m_listener, SIGNAL(timeout()),
           this, SLOT(listen()));
-  m_Socket->setsockopt(ZMQ_IDENTITY, "A", 1);
 }
 
 ZeroMqConnection::~ZeroMqConnection()

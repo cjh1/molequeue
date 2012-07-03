@@ -17,7 +17,7 @@
 #ifndef LOCALSOCKETCONNECTION_H_
 #define LOCALSOCKETCONNECTION_H_
 
-#include "../connection.h"
+#include "transport/connection.h"
 
 class QLocalSocket;
 
