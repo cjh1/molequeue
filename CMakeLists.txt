@@ -22,6 +22,8 @@ option(BUILD_SHARED_LIBS "Build with shared libraries" ON)
 
 option(USE_ZERO_MQ "Build molequeue with ZeroMQ support" OFF)
 
+option(USE_LIBSSH2 "Build support for libssh2" ON)
+
 if(ENABLE_TESTING)
   include(CTest)
   enable_testing()

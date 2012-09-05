@@ -79,6 +79,15 @@ set(mq_srcs
   terminalprocess.cpp
 )
 
+if(USE_LIBSSH2)
+  include_directories(/home/cjh/chemistry/libssh2/include)
+  set(libssh2_lib /home/cjh/chemistry/libssh2/lib/libssh2.so)
+  list(APPEND mq_srcs
+    libssh2connection.cpp
+    libssh2operations.cpp
+    libssh2copyoperation.cpp)
+endif()
+
 if(WIN32)
   list(APPEND mq_srcs puttycommand.cpp)
 endif()
@@ -126,7 +135,8 @@ set_target_properties(molequeue_static PROPERTIES AUTOMOC TRUE)
 target_link_libraries(molequeue_static
   mqconnection
   mqlocalsocketclient
-  mqconnectionlistener)
+  mqconnectionlistener
+  ${libssh2_lib})
 
 add_executable(molequeue MACOSX_BUNDLE main.cpp ${rcc_srcs})
 target_link_libraries(molequeue

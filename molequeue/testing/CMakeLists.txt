@@ -41,6 +41,10 @@ set(MyTests
   sshcommand
   )
 
+if(USE_LIBSSH2)
+  list(APPEND MyTests libssh2connection)
+endif()
+
 foreach(test ${MyTests})
   add_executable(${test}test MACOSX_BUNDLE ${test}test.cpp)
   set_target_properties(${test}test PROPERTIES AUTOMOC TRUE)
