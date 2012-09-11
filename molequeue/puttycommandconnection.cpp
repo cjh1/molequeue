@@ -14,20 +14,21 @@
 
 ******************************************************************************/
 
-#include "puttycommand.h"
+#include "puttycommandconnection.h"
 
 namespace MoleQueue {
 
-PuttyCommand::PuttyCommand(QObject *parentObject) : SshCommand(parentObject,
-                                                               "plink", "pscp")
+PuttyCommandConnection::PuttyCommandConnection(QObject *parentObject) :
+   SshCommandConnection(parentObject,
+                       "plink", "pscp")
 {
 }
 
-PuttyCommand::~PuttyCommand()
+PuttyCommandConnection::~PuttyCommandConnection()
 {
 }
 
-QStringList PuttyCommand::sshArgs()
+QStringList PuttyCommandConnection::sshArgs()
 {
   QStringList args;
   if (!m_identityFile.isEmpty())
@@ -38,7 +39,7 @@ QStringList PuttyCommand::sshArgs()
   return args;
 }
 
-QStringList PuttyCommand::scpArgs()
+QStringList PuttyCommandConnection::scpArgs()
 {
   QStringList args;
   if (!m_identityFile.isEmpty())

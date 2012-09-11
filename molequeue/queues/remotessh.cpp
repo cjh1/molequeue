@@ -23,7 +23,7 @@
 #include "../program.h"
 #include "../remotequeuewidget.h"
 #include "../server.h"
-#include "../sshcommandfactory.h"
+#include "../sshcommandconnectionfactory.h"
 
 #include <QtCore/QTimer>
 #include <QtCore/QDebug>
@@ -34,9 +34,6 @@ namespace MoleQueue {
 
 QueueRemoteSsh::QueueRemoteSsh(const QString &queueName, QueueManager *parentObject)
   : QueueRemote(queueName, parentObject),
-    m_sshExecutable(SshCommandFactory::defaultSshCommand()),
-    m_scpExecutable(SshCommandFactory::defaultScpCommand()),
-    m_sshPort(22),
     m_isCheckingQueue(false)
 {
   // Check for jobs to submit every 5 seconds
@@ -44,6 +41,15 @@ QueueRemoteSsh::QueueRemoteSsh(const QString &queueName, QueueManager *parentObj
 
   // Always allow m_requestQueueCommand to return 0
   m_allowedQueueRequestExitCodes.append(0);
+
+  SshCommandConnection *commandConn = SshCommandConnectionFactory::instance()->
+    newSshCommandConnection(this);
+
+  commandConn->setPortNumber(22);
+  commandConn->setSshCommand(SshCommandConnectionFactory::defaultSshCommand());
+  commandConn->setScpCommand(SshCommandConnectionFactory::defaultScpCommand());
+
+  m_sshConnection = commandConn;
 }
 
 QueueRemoteSsh::~QueueRemoteSsh()
@@ -57,12 +63,12 @@ void QueueRemoteSsh::readSettings(QSettings &settings)
   m_submissionCommand = settings.value("submissionCommand").toString();
   m_requestQueueCommand = settings.value("requestQueueCommand").toString();
   m_killCommand = settings.value("killCommand").toString();
-  m_sshExecutable = settings.value("sshExecutable", "ssh").toString();
-  m_scpExecutable = settings.value("scpExecutable", "scp").toString();
-  m_hostName = settings.value("hostName").toString();
-  m_userName = settings.value("userName").toString();
-  m_identityFile = settings.value("identityFile").toString();
-  m_sshPort  = settings.value("sshPort").toInt();
+  setSshExecutable(settings.value("sshExecutable", "ssh").toString());
+  setScpExecutable(settings.value("scpExecutable", "scp").toString());
+  setHostName(settings.value("hostName").toString());
+  setUserName(settings.value("userName").toString());
+  setIdentityFile(settings.value("identityFile").toString());
+  setSshPort(settings.value("sshPort").toInt());
 }
 
 void QueueRemoteSsh::writeSettings(QSettings &settings) const
@@ -72,12 +78,12 @@ void QueueRemoteSsh::writeSettings(QSettings &settings) const
   settings.setValue("submissionCommand", m_submissionCommand);
   settings.setValue("requestQueueCommand", m_requestQueueCommand);
   settings.setValue("killCommand", m_killCommand);
-  settings.setValue("sshExecutable", m_sshExecutable);
-  settings.setValue("scpExecutable", m_scpExecutable);
-  settings.setValue("hostName", m_hostName);
-  settings.setValue("userName", m_userName);
-  settings.setValue("identityFile", m_identityFile);
-  settings.setValue("sshPort",  m_sshPort);
+  settings.setValue("sshExecutable", sshExecutable());
+  settings.setValue("scpExecutable", scpExectuable());
+  settings.setValue("hostName", hostName());
+  settings.setValue("userName", userName());
+  settings.setValue("identityFile", identityFile());
+  settings.setValue("sshPort",  sshPort());
 }
 
 void QueueRemoteSsh::exportConfiguration(QSettings &exporter,
@@ -88,8 +94,8 @@ void QueueRemoteSsh::exportConfiguration(QSettings &exporter,
   exporter.setValue("submissionCommand", m_submissionCommand);
   exporter.setValue("requestQueueCommand", m_requestQueueCommand);
   exporter.setValue("killCommand", m_killCommand);
-  exporter.setValue("hostName", m_hostName);
-  exporter.setValue("sshPort",  m_sshPort);
+  exporter.setValue("hostName", hostName());
+  exporter.setValue("sshPort",  sshPort());
 }
 
 void QueueRemoteSsh::importConfiguration(QSettings &importer,
@@ -100,8 +106,8 @@ void QueueRemoteSsh::importConfiguration(QSettings &importer,
   m_submissionCommand = importer.value("submissionCommand").toString();
   m_requestQueueCommand = importer.value("requestQueueCommand").toString();
   m_killCommand = importer.value("killCommand").toString();
-  m_hostName = importer.value("hostName").toString();
-  m_sshPort  = importer.value("sshPort").toInt();
+  setHostName(importer.value("hostName").toString());
+  setSshPort(importer.value("sshPort").toInt());
 }
 
 AbstractQueueSettingsWidget* QueueRemoteSsh::settingsWidget()
@@ -116,32 +122,35 @@ void QueueRemoteSsh::createRemoteDirectory(Job job)
   // created by scp.
   QString remoteDir = QString("%1").arg(m_workingDirectoryBase);
 
-  SshConnection *conn = newSshConnection();
-  conn->setData(QVariant::fromValue(job));
-  connect(conn, SIGNAL(requestComplete()), this, SLOT(remoteDirectoryCreated()));
+  SshOperation *op = m_sshConnection->newCommand(QString("mkdir -p %1").
+                                                  arg(remoteDir));
 
-  if (!conn->execute(QString("mkdir -p %1").arg(remoteDir))) {
+  op->setData(QVariant::fromValue(job));
+  connect(op, SIGNAL(complete()), this, SLOT(remoteDirectoryCreated()));
+
+  if (!op->execute()) {
     Logger::logError(tr("Could not initialize ssh resources: user= '%1'\nhost ="
                         " '%2' port = '%3'")
-                     .arg(conn->userName()).arg(conn->hostName())
-                     .arg(conn->portNumber()), job.moleQueueId());
+                     .arg(m_sshConnection->userName())
+                     .arg(m_sshConnection->hostName())
+                     .arg(m_sshConnection->portNumber()), job.moleQueueId());
     job.setJobState(MoleQueue::Error);
-    conn->deleteLater();
+    op->deleteLater();
     return;
   }
 }
 
 void QueueRemoteSsh::remoteDirectoryCreated()
 {
-  SshConnection *conn = qobject_cast<SshConnection*>(sender());
-  if (!conn) {
+  SshOperation *op = qobject_cast<SshOperation*>(sender());
+  if (!op) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
                      .arg("Sender is not an SshConnection!"));
     return;
   }
-  conn->deleteLater();
+  op->deleteLater();
 
-  Job job = conn->data().value<Job>();
+  Job job = op->data().value<Job>();
 
   if (!job.isValid()) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
@@ -149,12 +158,13 @@ void QueueRemoteSsh::remoteDirectoryCreated()
     return;
   }
 
-  if (conn->exitCode() != 0) {
+  if (op->errorCode() != 0) {
     Logger::logWarning(tr("Cannot create remote directory '%1@%2:%3'.\n"
                           "Exit code (%4) %5")
-                     .arg(conn->userName()).arg(conn->hostName())
-                     .arg(m_workingDirectoryBase).arg(conn->exitCode())
-                     .arg(conn->output()), job.moleQueueId());
+                     .arg(m_sshConnection->userName())
+                     .arg(m_sshConnection->hostName())
+                     .arg(m_workingDirectoryBase).arg(op->errorCode())
+                     .arg(op->output()), job.moleQueueId());
     // Retry submission:
     if (addJobFailure(job.moleQueueId()))
       m_pendingSubmission.append(job.moleQueueId());
@@ -172,32 +182,33 @@ void QueueRemoteSsh::copyInputFilesToHost(Job job)
                                       .arg(m_workingDirectoryBase)
                                       .arg(job.moleQueueId()));
 
-  SshConnection *conn = newSshConnection();
-  conn->setData(QVariant::fromValue(job));
-  connect(conn, SIGNAL(requestComplete()), this, SLOT(inputFilesCopied()));
+  SshOperation *op = m_sshConnection->newDirUpload(localDir, remoteDir);
+  op->setData(QVariant::fromValue(job));
+  connect(op, SIGNAL(complete()), this, SLOT(inputFilesCopied()));
 
-  if (!conn->copyDirTo(localDir, remoteDir)) {
+  if (!op->execute()) {
     Logger::logError(tr("Could not initialize ssh resources: user= '%1'\nhost ="
                         " '%2' port = '%3'")
-                     .arg(conn->userName()).arg(conn->hostName())
-                     .arg(conn->portNumber()), job.moleQueueId());
+                     .arg(m_sshConnection->userName())
+                     .arg(m_sshConnection->hostName())
+                     .arg(m_sshConnection->portNumber()), job.moleQueueId());
     job.setJobState(MoleQueue::Error);
-    conn->deleteLater();
+    op->deleteLater();
     return;
   }
 }
 
 void QueueRemoteSsh::inputFilesCopied()
 {
-  SshConnection *conn = qobject_cast<SshConnection*>(sender());
-  if (!conn) {
+  SshOperation *op = qobject_cast<SshOperation*>(sender());
+  if (!op) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
                      .arg("Sender is not an SshConnection!"));
     return;
   }
-  conn->deleteLater();
+  op->deleteLater();
 
-  Job job = conn->data().value<Job>();
+  Job job = op->data().value<Job>();
 
   if (!job.isValid()) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
@@ -205,20 +216,21 @@ void QueueRemoteSsh::inputFilesCopied()
     return;
   }
 
-  if (conn->exitCode() != 0) {
+  if (op->errorCode() != 0) {
     // Check if we just need to make the parent directory
-    if (conn->exitCode() == 1 &&
-        conn->output().contains("No such file or directory")) {
+    if (op->errorCode() == 1 &&
+        op->output().contains("No such file or directory")) {
       Logger::logDebugMessage(tr("Remote working directory missing on remote "
                                  "host. Creating now..."), job.moleQueueId());
       createRemoteDirectory(job);
       return;
     }
+
     Logger::logWarning(tr("Error while copying input files to remote host:\n"
                           "'%1' --> '%2/'\nExit code (%3) %4")
                        .arg(job.localWorkingDirectory())
                        .arg(m_workingDirectoryBase)
-                       .arg(conn->exitCode()).arg(conn->output()),
+                       .arg(op->errorCode()).arg(op->output()),
                        job.moleQueueId());
     // Retry submission:
     if (addJobFailure(job.moleQueueId()))
@@ -238,35 +250,36 @@ void QueueRemoteSsh::submitJobToRemoteQueue(Job job)
       .arg(m_submissionCommand)
       .arg(m_launchScriptName);
 
-  SshConnection *conn = newSshConnection();
-  conn->setData(QVariant::fromValue(job));
-  connect(conn, SIGNAL(requestComplete()),
+  SshOperation *op = m_sshConnection->newCommand(command);
+  op->setData(QVariant::fromValue(job));
+  connect(op, SIGNAL(complete()),
           this, SLOT(jobSubmittedToRemoteQueue()));
 
-  if (!conn->execute(command)) {
+  if (!op->execute()) {
     Logger::logError(tr("Could not initialize ssh resources: user= '%1'\nhost ="
                         " '%2' port = '%3'")
-                     .arg(conn->userName()).arg(conn->hostName())
-                     .arg(conn->portNumber()), job.moleQueueId());
+                     .arg(m_sshConnection->userName())
+                     .arg(m_sshConnection->hostName())
+                     .arg(m_sshConnection->portNumber()), job.moleQueueId());
     job.setJobState(MoleQueue::Error);
-    conn->deleteLater();
+    op->deleteLater();
     return;
   }
 }
 
 void QueueRemoteSsh::jobSubmittedToRemoteQueue()
 {
-  SshConnection *conn = qobject_cast<SshConnection*>(sender());
-  if (!conn) {
+  SshOperation *op = qobject_cast<SshOperation*>(sender());
+  if (!op) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
                      .arg("Sender is not an SshConnection!"));
     return;
   }
-  conn->deleteLater();
+  op->deleteLater();
 
   IdType queueId;
-  parseQueueId(conn->output(), &queueId);
-  Job job = conn->data().value<Job>();
+  parseQueueId(op->output(), &queueId);
+  Job job = op->data().value<Job>();
 
   if (!job.isValid()) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
@@ -274,14 +287,15 @@ void QueueRemoteSsh::jobSubmittedToRemoteQueue()
     return;
   }
 
-  if (conn->exitCode() != 0) {
+  if (op->errorCode() != 0) {
     Logger::logWarning(tr("Could not submit job to remote queue on %1@%2:%3\n"
                           "%4 %5/%6/%7\nExit code (%8) %9")
-                       .arg(conn->userName()).arg(conn->hostName())
-                       .arg(conn->portNumber()).arg(m_submissionCommand)
+                       .arg(m_sshConnection->userName())
+                       .arg(m_sshConnection->hostName())
+                       .arg(m_sshConnection->portNumber()).arg(m_submissionCommand)
                        .arg(m_workingDirectoryBase).arg(job.moleQueueId())
-                       .arg(m_launchScriptName).arg(conn->exitCode())
-                       .arg(conn->output()), job.moleQueueId());
+                       .arg(m_launchScriptName).arg(op->errorCode())
+                       .arg(op->output()), job.moleQueueId());
     // Retry submission:
     if (addJobFailure(job.moleQueueId()))
       m_pendingSubmission.append(job.moleQueueId());
@@ -307,43 +321,46 @@ void QueueRemoteSsh::requestQueueUpdate()
 
   const QString command = generateQueueRequestCommand();
 
-  SshConnection *conn = newSshConnection();
-  connect(conn, SIGNAL(requestComplete()),
+  SshOperation *op = m_sshConnection->newCommand(command);
+  connect(op, SIGNAL(complete()),
           this, SLOT(handleQueueUpdate()));
 
-  if (!conn->execute(command)) {
+  if (!op->execute()) {
     Logger::logError(tr("Could not initialize ssh resources: user= '%1'\nhost ="
                         " '%2' port = '%3'")
-                     .arg(conn->userName()).arg(conn->hostName())
-                     .arg(conn->portNumber()));
-    conn->deleteLater();
+                     .arg(m_sshConnection->userName())
+                     .arg(m_sshConnection->hostName())
+                     .arg(m_sshConnection->portNumber()));
+    op->deleteLater();
     return;
   }
 }
 
 void QueueRemoteSsh::handleQueueUpdate()
 {
-  SshConnection *conn = qobject_cast<SshConnection*>(sender());
-  if (!conn) {
+  SshOperation *op = qobject_cast<SshOperation*>(sender());
+  if (!op) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
                      .arg("Sender is not an SshConnection!"));
     m_isCheckingQueue = false;
     return;
   }
-  conn->deleteLater();
+  op->deleteLater();
 
-  if (!m_allowedQueueRequestExitCodes.contains(conn->exitCode())) {
+  if (!m_allowedQueueRequestExitCodes.contains(op->errorCode())) {
     Logger::logWarning(tr("Error requesting queue data (%1 -u %2) on remote "
                           "host %3@%4:%5. Exit code (%6) %7")
                        .arg(m_requestQueueCommand)
-                       .arg(m_userName).arg(conn->userName())
-                       .arg(conn->hostName()).arg(conn->portNumber())
-                       .arg(conn->exitCode()).arg(conn->output()));
+                       .arg(m_sshConnection->userName())
+                       .arg(m_sshConnection->userName())
+                       .arg(m_sshConnection->hostName())
+                       .arg(m_sshConnection->portNumber())
+                       .arg(op->errorCode()).arg(op->output()));
     m_isCheckingQueue = false;
     return;
   }
 
-  QStringList output = conn->output().split("\n", QString::SkipEmptyParts);
+  QStringList output = op->output().split("\n", QString::SkipEmptyParts);
 
   // Get list of submitted queue ids so that we detect when jobs have left
   // the queue.
@@ -412,33 +429,35 @@ void QueueRemoteSsh::finalizeJobCopyFromServer(Job job)
   QString localDir = job.localWorkingDirectory() + "/..";
   QString remoteDir =
       QString("%1/%2").arg(m_workingDirectoryBase).arg(job.moleQueueId());
-  SshConnection *conn = newSshConnection();
-  conn->setData(QVariant::fromValue(job));
-  connect(conn, SIGNAL(requestComplete()),
+
+  SshOperation *op = m_sshConnection->newDirDownload(remoteDir, localDir);
+  op->setData(QVariant::fromValue(job));
+  connect(op, SIGNAL(complete()),
           this, SLOT(finalizeJobOutputCopiedFromServer()));
 
-  if (!conn->copyDirFrom(remoteDir, localDir)) {
+  if (!op->execute()) {
     Logger::logError(tr("Could not initialize ssh resources: user= '%1'\nhost ="
                         " '%2' port = '%3'")
-                     .arg(conn->userName()).arg(conn->hostName())
-                     .arg(conn->portNumber()), job.moleQueueId());
+                     .arg(m_sshConnection->userName())
+                     .arg(m_sshConnection->hostName())
+                     .arg(m_sshConnection->portNumber()), job.moleQueueId());
     job.setJobState(MoleQueue::Error);
-    conn->deleteLater();
+    op->deleteLater();
     return;
   }
 }
 
 void QueueRemoteSsh::finalizeJobOutputCopiedFromServer()
 {
-  SshConnection *conn = qobject_cast<SshConnection*>(sender());
-  if (!conn) {
+  SshOperation *op = qobject_cast<SshOperation*>(sender());
+  if (!op) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
                      .arg("Sender is not an SshConnection!"));
     return;
   }
-  conn->deleteLater();
+  op->deleteLater();
 
-  Job job = conn->data().value<Job>();
+  Job job = op->data().value<Job>();
 
   if (!job.isValid()) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
@@ -446,12 +465,14 @@ void QueueRemoteSsh::finalizeJobOutputCopiedFromServer()
     return;
   }
 
-  if (conn->exitCode() != 0) {
+  if (op->errorCode() != 0) {
     Logger::logError(tr("Error while copying job output from remote server:\n"
                         "%1@%2:%3 --> %4\nExit code (%5) %6")
-                     .arg(conn->userName()).arg(conn->hostName())
-                     .arg(conn->portNumber()).arg(job.localWorkingDirectory())
-                     .arg(conn->exitCode()).arg(conn->output()),
+                     .arg(m_sshConnection->userName())
+                     .arg(m_sshConnection->hostName())
+                     .arg(m_sshConnection->portNumber())
+                     .arg(job.localWorkingDirectory())
+                     .arg(op->errorCode()).arg(op->output()),
                      job.moleQueueId());
     job.setJobState(MoleQueue::Error);
     return;
@@ -505,32 +526,33 @@ void QueueRemoteSsh::cleanRemoteDirectory(Job job)
 
   QString command = QString ("rm -rf %1").arg(remoteDir);
 
-  SshConnection *conn = newSshConnection();
-  conn->setData(QVariant::fromValue(job));
-  connect(conn, SIGNAL(requestComplete()),
+  SshOperation *op = m_sshConnection->newCommand(command);
+  op->setData(QVariant::fromValue(job));
+  connect(op, SIGNAL(complete()),
           this, SLOT(remoteDirectoryCleaned()));
 
-  if (!conn->execute(command)) {
+  if (!op->execute()) {
     Logger::logError(tr("Could not initialize ssh resources: user= '%1'\nhost ="
                         " '%2' port = '%3'")
-                     .arg(conn->userName()).arg(conn->hostName())
-                     .arg(conn->portNumber()), job.moleQueueId());
-    conn->deleteLater();
+                     .arg(m_sshConnection->userName())
+                     .arg(m_sshConnection->hostName())
+                     .arg(m_sshConnection->portNumber()), job.moleQueueId());
+    op->deleteLater();
     return;
   }
 }
 
 void QueueRemoteSsh::remoteDirectoryCleaned()
 {
-  SshConnection *conn = qobject_cast<SshConnection*>(sender());
-  if (!conn) {
+  SshOperation *op = qobject_cast<SshOperation*>(sender());
+  if (!op) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
                      .arg("Sender is not an SshConnection!"));
     return;
   }
-  conn->deleteLater();
+  op->deleteLater();
 
-  Job job = conn->data().value<Job>();
+  Job job = op->data().value<Job>();
 
   if (!job.isValid()) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
@@ -538,12 +560,13 @@ void QueueRemoteSsh::remoteDirectoryCleaned()
     return;
   }
 
-  if (conn->exitCode() != 0) {
+  if (op->errorCode() != 0) {
     Logger::logError(tr("Error clearing remote directory '%1@%2:%3/%4'.\n"
                         "Exit code (%5) %6")
-                     .arg(conn->userName()).arg(conn->hostName())
+                     .arg(m_sshConnection->userName())
+                     .arg(m_sshConnection->hostName())
                      .arg(m_workingDirectoryBase).arg(job.moleQueueId())
-                     .arg(conn->exitCode()).arg(conn->output()),
+                     .arg(op->errorCode()).arg(op->output()),
                      job.moleQueueId());
     job.setJobState(MoleQueue::Error);
     return;
@@ -556,64 +579,54 @@ void QueueRemoteSsh::beginKillJob(Job job)
       .arg(m_killCommand)
       .arg(job.queueId());
 
-  SshConnection *conn = newSshConnection();
-  conn->setData(QVariant::fromValue(job));
-  connect(conn, SIGNAL(requestComplete()),
+  SshOperation *op = m_sshConnection->newCommand(command);
+  op->setData(QVariant::fromValue(job));
+  connect(op, SIGNAL(complete()),
           this, SLOT(endKillJob()));
 
-  if (!conn->execute(command)) {
+  if (!op->execute()) {
     Logger::logError(tr("Could not initialize ssh resources: user= '%1'\nhost ="
                         " '%2' port = '%3'")
-                     .arg(conn->userName()).arg(conn->hostName())
-                     .arg(conn->portNumber()), job.moleQueueId());
+                     .arg(m_sshConnection->userName())
+                     .arg(m_sshConnection->hostName())
+                     .arg(m_sshConnection->portNumber()), job.moleQueueId());
     job.setJobState(MoleQueue::Error);
-    conn->deleteLater();
+    op->deleteLater();
     return;
   }
 }
 
 void QueueRemoteSsh::endKillJob()
 {
-  SshConnection *conn = qobject_cast<SshConnection*>(sender());
-  if (!conn) {
+  SshOperation *op = qobject_cast<SshOperation*>(sender());
+  if (!op) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
                      .arg("Sender is not an SshConnection!"));
     return;
   }
-  conn->deleteLater();
+  op->deleteLater();
 
-  Job job = conn->data().value<Job>();
+  Job job = op->data().value<Job>();
   if (!job.isValid()) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
                      .arg("Sender does not have an associated job!"));
     return;
   }
 
-  if (conn->exitCode() != 0) {
+  if (op->errorCode() != 0) {
     Logger::logWarning(tr("Error cancelling job (mqid=%1, queueid=%2) on "
                           "%3@%4:%5 (queue=%6)\n(%7) %8")
                        .arg(job.moleQueueId()).arg(job.queueId())
-                       .arg(conn->userName()).arg(conn->hostName())
-                       .arg(conn->portNumber()).arg(m_name)
-                       .arg(conn->exitCode()).arg(conn->output()));
+                       .arg(m_sshConnection->userName())
+                       .arg(m_sshConnection->hostName())
+                       .arg(m_sshConnection->portNumber()).arg(m_name)
+                       .arg(op->errorCode()).arg(op->output()));
     return;
   }
 
   job.setJobState(MoleQueue::Killed);
 }
 
-SshConnection *QueueRemoteSsh::newSshConnection()
-{
-  SshCommand *command = SshCommandFactory::instance()->newSshCommand();
-  command->setSshCommand(m_sshExecutable);
-  command->setScpCommand(m_scpExecutable);
-  command->setHostName(m_hostName);
-  command->setUserName(m_userName);
-  command->setIdentityFile(m_identityFile);
-  command->setPortNumber(m_sshPort);
-
-  return command;
-}
 
 QString QueueRemoteSsh::generateQueueRequestCommand()
 {
@@ -625,5 +638,46 @@ QString QueueRemoteSsh::generateQueueRequestCommand()
 
   return QString ("%1 %2").arg(m_requestQueueCommand).arg(queueIdString);
 }
+
+void QueueRemoteSsh::setSshExecutable(const QString &exe)
+{
+  SshCommandConnection *commandConn
+    = qobject_cast<SshCommandConnection *>(m_sshConnection);
+
+  if(commandConn)
+    commandConn->setSshCommand(exe);
+}
+
+QString QueueRemoteSsh::sshExecutable() const
+{
+  SshCommandConnection *commandConn
+    = qobject_cast<SshCommandConnection *>(m_sshConnection);
+
+  if(commandConn)
+    return commandConn->sshCommand();
+  else
+    return NULL;
+}
+
+void QueueRemoteSsh::setScpExecutable(const QString &exe)
+{
+  SshCommandConnection *commandConn
+       = qobject_cast<SshCommandConnection *>(m_sshConnection);
+
+  if(commandConn)
+     commandConn->setScpCommand(exe);
+}
+
+QString QueueRemoteSsh::scpExectuable() const
+{
+  SshCommandConnection *commandConn
+    = qobject_cast<SshCommandConnection *>(m_sshConnection);
+
+  if(commandConn)
+    return commandConn->scpCommand();
+  else
+    return NULL;
+}
+
 
 } // End namespace

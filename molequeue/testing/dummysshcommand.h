@@ -17,22 +17,31 @@
 #ifndef DUMMYSSHCOMMAND_H
 #define DUMMYSSHCOMMAND_H
 
-#include "opensshcommand.h"
+#include "opensshcommandconnection.h"
+#include "sshcommand.h"
+#include "sshoperation.h"
 
-/// SshCommand implementation that doesn't actually call external processes.
-class DummySshCommand : public MoleQueue::OpenSshCommand
+#include <QtCore/QVariant>
+#include <qdebug.h>
+
+class DummySshFileUploadOperation : public MoleQueue::SshFileUploadCommand
 {
   Q_OBJECT
-public:
-  DummySshCommand(QObject *parentObject = NULL);
 
-  ~DummySshCommand();
+public:
+  DummySshFileUploadOperation(MoleQueue::SshCommandConnection *connection,
+                              const QString &localFile,
+                              const QString &remoteFile);
 
   QString getDummyCommand() const { return m_dummyCommand; }
   QStringList getDummyArgs() const { return m_dummyArgs; }
-  void setDummyOutput(const QString &out) { m_output = out; }
-  void setDummyExitCode(int code) {m_exitCode = code; }
-  void emitDummyRequestComplete() { emit requestComplete(); }
+  void setDummyExitCode(int exitCode) {
+    m_errorCode = exitCode;
+  };
+  void setDummyOutput(const QString &out) {
+    m_output = out;
+  }
+  void emitDummyComplete() { emit complete(); }
 
 protected:
   void sendRequest(const QString &command, const QStringList &args)
@@ -43,6 +52,157 @@ protected:
 
   QString m_dummyCommand;
   QStringList m_dummyArgs;
+};
+
+class DummySshFileDownloadOperation : public MoleQueue::SshFileDownloadCommand
+{
+  Q_OBJECT
+
+public:
+  DummySshFileDownloadOperation(MoleQueue::SshCommandConnection *connection,
+                                const QString &remoteFile,
+                                const QString &localFile);
+
+  QString getDummyCommand() const { return m_dummyCommand; }
+  QStringList getDummyArgs() const { return m_dummyArgs; }
+  void setDummyExitCode(int exitCode) {
+    m_errorCode = exitCode;
+  };
+  void setDummyOutput(const QString &out) {
+    m_output = out;
+  }
+  void emitDummyComplete() { emit complete(); }
+
+protected:
+  void sendRequest(const QString &command, const QStringList &args)
+  {
+    m_dummyCommand = command;
+    m_dummyArgs = args;
+  }
+
+  QString m_dummyCommand;
+  QStringList m_dummyArgs;
+};
+
+class DummySshDirUploadOperation : public MoleQueue::SshDirUploadCommand
+{
+  Q_OBJECT
+
+public:
+  DummySshDirUploadOperation(MoleQueue::SshCommandConnection *connection,
+                              const QString &localDir,
+                              const QString &remoteDir);
+
+  QString getDummyCommand() const { return m_dummyCommand; }
+  QStringList getDummyArgs() const { return m_dummyArgs; }
+  void setDummyExitCode(int exitCode) {
+    m_errorCode = exitCode;
+  };
+  void setDummyOutput(const QString &out) {
+    m_output = out;
+  }
+  void emitDummyComplete() { emit complete(); }
+
+protected:
+  void sendRequest(const QString &command, const QStringList &args)
+  {
+    m_dummyCommand = command;
+    m_dummyArgs = args;
+  }
+
+  QString m_dummyCommand;
+  QStringList m_dummyArgs;
+};
+
+class DummySshDirDownloadOperation : public MoleQueue::SshDirDownloadCommand
+{
+  Q_OBJECT
+
+public:
+  DummySshDirDownloadOperation(MoleQueue::SshCommandConnection *connection,
+                                const QString &remoteDir,
+                                const QString &localDir);
+
+  QString getDummyCommand() const { return m_dummyCommand; }
+  QStringList getDummyArgs() const { return m_dummyArgs; }
+  void setDummyExitCode(int exitCode) {
+    m_errorCode = exitCode;
+  };
+  void setDummyOutput(const QString &out) {
+    m_output = out;
+  }
+  void emitDummyComplete() { emit complete(); }
+
+protected:
+  void sendRequest(const QString &command, const QStringList &args)
+  {
+    m_dummyCommand = command;
+    m_dummyArgs = args;
+  }
+
+  QString m_dummyCommand;
+  QStringList m_dummyArgs;
+};
+
+
+class DummySshExecOperation : public MoleQueue::SshExecCommand
+{
+  Q_OBJECT
+
+public:
+  DummySshExecOperation(MoleQueue::SshCommandConnection *connection,
+                                const QString &command);
+
+  QString getDummyCommand() const { return m_dummyCommand; }
+  QStringList getDummyArgs() const { return m_dummyArgs; }
+  void setDummyExitCode(int exitCode) {
+    m_errorCode = exitCode;
+  };
+  void setDummyOutput(const QString &out) {
+    m_output = out;
+  }
+  void emitDummyComplete() { emit complete(); }
+
+protected:
+  void sendRequest(const QString &command, const QStringList &args)
+  {
+    qDebug() << "sendRequest";
+    m_dummyCommand = command;
+    m_dummyArgs = args;
+  }
+
+  QString m_dummyCommand;
+  QStringList m_dummyArgs;
+};
+
+/// SshConnection implementation that doesn't actually call external processes.
+class DummySshConnection : public MoleQueue::OpenSshCommandConnection
+{
+  Q_OBJECT
+public:
+  DummySshConnection(QObject *parentObject = NULL);
+
+  ~DummySshConnection();
+
+  MoleQueue::SshOperation *newCommand(const QString &command);
+  MoleQueue::SshOperation *newFileUpload(const QString &localFile,
+                                         const QString &remoteFile);
+  MoleQueue::SshOperation *newFileDownLoad(const QString &remoteFile,
+                                           const QString &localFile);
+  MoleQueue::SshOperation *newDirUpload(const QString &localDir,
+                                        const QString &remoteDir);
+  MoleQueue::SshOperation *newDirDownload(const QString &remoteDir,
+                                          const QString &localDir);
+
+  MoleQueue::SshOperation *getDummyOperation() {
+    return m_dummyOperation;
+  };
+
+protected:
+  MoleQueue::SshOperation *m_dummyOperation;
+
+  //QString m_dummyCommand;
+  //QStringList m_dummyArgs;
 };
 
 #endif // DUMMYSSHCOMMAND_H

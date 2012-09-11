@@ -18,12 +18,13 @@
 
 #include "dummysshcommand.h"
 
+
 class SshCommandTest : public QObject
 {
   Q_OBJECT
 
 private:
-  DummySshCommand m_ssh;
+  DummySshConnection m_ssh;
 
 private slots:
   /// Called before the first test function is executed.
@@ -70,15 +71,24 @@ void SshCommandTest::sanityCheck()
   QCOMPARE(m_ssh.sshCommand(), QString("mySsh"));
   m_ssh.setScpCommand("myScp");
   QCOMPARE(m_ssh.scpCommand(), QString("myScp"));
-  m_ssh.setData(QVariant("Test"));
-  QCOMPARE(m_ssh.data().toString(), QString("Test"));
+
+  MoleQueue::SshOperation *op = m_ssh.newCommand("test");
+
+  op->setData(QVariant("Test"));
+  QCOMPARE(op->data().toString(), QString("Test"));
 }
 
 void SshCommandTest::testExecute()
 {
-  m_ssh.execute("ls ~");
-  QCOMPARE(m_ssh.getDummyCommand(), QString("ssh"));
-  QCOMPARE(m_ssh.getDummyArgs(), QStringList ()
+  MoleQueue::SshOperation *op = m_ssh.newCommand("ls ~");
+
+  DummySshExecOperation *execCommand
+       = qobject_cast<DummySshExecOperation *>(op);
+
+  op->execute();
+
+  QCOMPARE(execCommand->getDummyCommand(), QString("ssh"));
+  QCOMPARE(execCommand->getDummyArgs(), QStringList ()
            << QString("-q")
            << QString("user@host")
            << QString("ls ~"));
@@ -86,9 +96,16 @@ void SshCommandTest::testExecute()
 
 void SshCommandTest::testCopyTo()
 {
-  m_ssh.copyTo("C:/local/path", "/remote/path");
-  QCOMPARE(m_ssh.getDummyCommand(), QString("scp"));
-  QCOMPARE(m_ssh.getDummyArgs(), QStringList ()
+  MoleQueue::SshOperation *op = m_ssh.newFileUpload("C:/local/path",
+                                                    "/remote/path");
+
+  DummySshFileUploadOperation *fileUpload
+        = qobject_cast<DummySshFileUploadOperation *>(op);
+
+  op->execute();
+
+  QCOMPARE(fileUpload->getDummyCommand(), QString("scp"));
+  QCOMPARE(fileUpload->getDummyArgs(), QStringList ()
            << QString("-q")
            << QString("-S") << QString("ssh")
            << QString("C:/local/path")
@@ -97,9 +114,16 @@ void SshCommandTest::testCopyTo()
 
 void SshCommandTest::testCopyFrom()
 {
-  m_ssh.copyFrom("/remote/path", "C:/local/path");
-  QCOMPARE(m_ssh.getDummyCommand(), QString("scp"));
-  QCOMPARE(m_ssh.getDummyArgs(), QStringList ()
+  MoleQueue::SshOperation *op = m_ssh.newFileDownLoad("/remote/path",
+                                                      "C:/local/path");
+
+  DummySshFileDownloadOperation *fileDownload
+      = qobject_cast<DummySshFileDownloadOperation *>(op);
+
+  op->execute();
+
+  QCOMPARE(fileDownload->getDummyCommand(), QString("scp"));
+  QCOMPARE(fileDownload->getDummyArgs(), QStringList ()
            << QString("-q")
            << QString("-S") << QString("ssh")
            << QString("user@host:/remote/path")
@@ -108,9 +132,17 @@ void SshCommandTest::testCopyFrom()
 
 void SshCommandTest::testCopyDirTo()
 {
-  m_ssh.copyDirTo("C:/local/path", "/remote/path");
-  QCOMPARE(m_ssh.getDummyCommand(), QString("scp"));
-  QCOMPARE(m_ssh.getDummyArgs(), QStringList ()
+
+  MoleQueue::SshOperation *op = m_ssh.newDirUpload("C:/local/path",
+                                                   "/remote/path");
+
+  DummySshDirUploadOperation *dirUpload
+    = qobject_cast<DummySshDirUploadOperation *>(op);
+
+  op->execute();
+
+  QCOMPARE(dirUpload->getDummyCommand(), QString("scp"));
+  QCOMPARE(dirUpload->getDummyArgs(), QStringList ()
            << QString("-q")
            << QString("-S") << QString("ssh")
            << QString("-r")
@@ -120,9 +152,19 @@ void SshCommandTest::testCopyDirTo()
 
 void SshCommandTest::testCopyDirFrom()
 {
-  m_ssh.copyDirFrom("/remote/path", "C:/local/path");
-  QCOMPARE(m_ssh.getDummyCommand(), QString("scp"));
-  QCOMPARE(m_ssh.getDummyArgs(), QStringList ()
+  MoleQueue::SshOperation *op = m_ssh.newDirDownload("/remote/path",
+                                                     "C:/local/path");
+
+  DummySshDirDownloadOperation *dirDownload
+    = qobject_cast<DummySshDirDownloadOperation *>(op);
+
+  op->execute();
+
+  qDebug() << "op: " << dirDownload->getDummyArgs();
+
+
+  QCOMPARE(dirDownload->getDummyCommand(), QString("scp"));
+  QCOMPARE(dirDownload->getDummyArgs(), QStringList ()
            << QString("-q")
            << QString("-S") << QString("ssh")
            << QString("-r")

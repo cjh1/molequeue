@@ -14,10 +14,10 @@
 
 ******************************************************************************/
 
-#ifndef OPENSSHCOMMAND_H
-#define OPENSSHCOMMAND_H
+#ifndef OPENSSHCOMMANDCONNECTION_H
+#define OPENSSHCOMMANDCONNECTIOn_H
 
-#include "sshcommand.h"
+#include "sshcommandconnection.h"
 
 namespace MoleQueue {
 
@@ -25,23 +25,26 @@ class TerminalProcess;
 
 
 /**
- * @class OpenSshCommand opensshcommand.h <molequeue/opensshcommand.h>
- * @brief Concrete implementation of SshCommand using commandline open ssh/scp.
+ * @class OpenSshCommandConnection opensshcommandconnection.h
+ * <molequeue/opensshcommandconnection.h>
+ * @brief Concrete implementation of SshCommandConnection using commandline
+ * open ssh/scp.
  * @author Marcus D. Hanwell, David C. Lonie, Chris Harris
  *
- * The OpenSshCommand provides an implementation of the SshCommand interface
- * that calls the commandline ssh and scp executables in a TerminalProcess.
+ * The OpenSshCommandConnection provides an implementation of the
+ * SshCommandConnection interface that calls the commandline ssh and
+ * scp executables in a TerminalProcess.
  *
  * When writing code that needs ssh functionality, the code should use the
  * SshConnection interface instead.
  */
-class OpenSshCommand : public SshCommand
+class OpenSshCommandConnection : public SshCommandConnection
 {
   Q_OBJECT
 
 public:
-  OpenSshCommand(QObject *parentObject = 0);
-  ~OpenSshCommand();
+  OpenSshCommandConnection(QObject *parentObject = 0);
+  ~OpenSshCommandConnection();
 
 protected:
 

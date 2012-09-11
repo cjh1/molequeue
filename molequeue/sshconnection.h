@@ -17,6 +17,8 @@
 #ifndef SSHCONNECTION_H
 #define SSHCONNECTION_H
 
+#include "sshoperation.h"
+
 #include <QtCore/QObject>
 #include <QtCore/QVariant>
 
@@ -56,36 +58,6 @@ public:
   /** \return The port that will be used. */
   int portNumber() const { return m_portNumber; }
 
-  /** \return Whether the connection is valid, at a minimum need a host name. */
-  virtual bool isValid() const;
-
-  /** \return The merged stdout and stderr of the remote command. */
-  virtual QString output() const;
-
-  /** \return The exit code returned from a remote command. */
-  virtual int exitCode() const;
-
-  /**
-   * Wait until the request has been completed.
-   *
-   * @param msecs Timeout in milliseconds. Default is 30 seconds.
-   *
-   * @return True if request finished, false on timeout.
-   */
-  virtual bool waitForCompletion(int msecs = 30000);
-
-  /** @return True if the request has completed. False otherwise. */
-  virtual bool isComplete() const;
-
-  /** @return A reference to arbitrary data stored in the command. */
-  QVariant & data() {return m_data;}
-
-  /** @return A reference to arbitrary data stored in the command. */
-  const QVariant & data() const {return m_data;}
-
-  /** @param newData Arbitrary data to store in the command. */
-  void setData(const QVariant &newData) {m_data = newData;}
-
 public slots:
   /**
    * Set whether the connection should be persistent, or each issuesd command
@@ -121,80 +93,62 @@ public slots:
   void setPortNumber(int newPortNumber) { m_portNumber = newPortNumber; }
 
   /**
-   * Execute the supplied command on the remote host.
-   *
-   * \note The command is executed asynchronously, see requestComplete() or
-   * waitForCompletion() for results.
-   *
-   * \sa requestSent() requestCompleted() waitForCompeletion()
+   * Create SshOperation to execute the supplied command on the remote host.
    *
    * \param command The command to execute.
    *
-   * \return True on success, false on failure.
+   * \return SshOperation to execute on remote system.
    */
-  virtual bool execute(const QString &command);
+  virtual SshOperation *newCommand(const QString &command) = 0;
 
   /**
-   * Copy a local file to the remote system.
+   * Create SshOperation to copy a local file to the remote system.
    *
-   * \note The command is executed asynchronously, see requestComplete() or
-   * waitForCompletion() for results.
    *
    * \sa requestSent() requestCompleted() waitForCompeletion()
    *
    * \param localFile The path of the local file.
    * \param remoteFile The path of the file on the remote system.
-   * \return True on success, false on failure.
+   * \return the SshOperation
    */
-  virtual bool copyTo(const QString &localFile, const QString &remoteFile);
+  virtual SshOperation *newFileUpload(const QString &localFile,
+                                      const QString &remoteFile) = 0;
 
   /**
-   * Copy a remote file to the local system.
+   * Create SshOperation to copy a remote file to the local system.
    *
-   * \note The command is executed asynchronously, see requestComplete() or
-   * waitForCompletion() for results.
-   *
-   * \sa requestSent() requestCompleted() waitForCompeletion()
    *
    * \param remoteFile The path of the file on the remote system.
    * \param localFile The path of the local file.
-   * \return True on success, false on failure.
+   * \return the SshOperation.
    */
-  virtual bool copyFrom(const QString &remoteFile, const QString &localFile);
+  virtual SshOperation *newFileDownload(const QString &remoteFile,
+                                        const QString &localFile) = 0;
 
   /**
-   * Copy a local directory recursively to the remote system.
+   * Create SshOperation to copy a local directory recursively to the
+   * remote system.
    *
-   * \note The command is executed asynchronously, see requestComplete() or
-   * waitForCompletion() for results.
-   *
-   * \sa requestSent() requestCompleted() waitForCompeletion()
    *
    * \param localDir The path of the local directory.
    * \param remoteDir The path of the directory on the remote system.
-   * \return True on success, false on failure.
+   * \return the SshOperation.
    */
-  virtual bool copyDirTo(const QString &localDir, const QString &remoteDir);
+  virtual SshOperation *newDirUpload(const QString &localDir,
+                                     const QString &remoteDir) = 0;
 
   /**
-   * Copy a remote directory recursively to the local system.
-   *
-   * \note The command is executed asynchronously, see requestComplete() or
-   * waitForCompletion() for results.
-   *
-   * \sa requestSent() requestCompleted() waitForCompeletion()
+   * Create SshOperation to copy a remote directory recursively to the
+   * local system.
    *
    * \param remoteDir The path of the directory on the remote system.
    * \param localFile The path of the local directory.
-   * \return True on success, false on failure.
+   * \return the SshOperation.
    */
-  virtual bool copyDirFrom(const QString &remoteDir, const QString &localDir);
+  virtual SshOperation *newDirDownload(const QString &remoteDir,
+                                       const QString &localDir) = 0;
 
 signals:
-  /**
-   * Emitted when the request has been sent to the server.
-   */
-  void requestSent();
 
   /**
    * Emitted when the request has been sent and the reply (if any) received.

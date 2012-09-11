@@ -14,9 +14,9 @@
 
 ******************************************************************************/
 
-#include "sshcommandfactory.h"
-#include "puttycommand.h"
-#include "opensshcommand.h"
+#include "sshcommandconnectionfactory.h"
+#include "puttycommandconnection.h"
+#include "opensshcommandconnection.h"
 
 #include <QtCore/QMutex>
 #include <QtCore/QCoreApplication>
@@ -26,52 +26,54 @@ namespace MoleQueue
 
 namespace
 {
-static SshCommandFactory *factoryInstance;
+  static SshCommandConnectionFactory *factoryInstance;
 }
 
-SshCommandFactory::SshCommandFactory(QObject *parentObject)
+SshCommandConnectionFactory::SshCommandConnectionFactory(QObject *parentObject)
   : QObject(parentObject)
 {
 }
 
-SshCommandFactory *SshCommandFactory::instance()
+SshCommandConnectionFactory *SshCommandConnectionFactory::instance()
 {
   static QMutex mutex;
   if (!factoryInstance) {
     mutex.lock();
     if (!factoryInstance)
-      factoryInstance = new SshCommandFactory(QCoreApplication::instance());
+      factoryInstance = new SshCommandConnectionFactory(QCoreApplication::instance());
     mutex.unlock();
   }
   return factoryInstance;
 }
 
-SshCommand *SshCommandFactory::newSshCommand(QObject *parentObject)
+SshCommandConnection *SshCommandConnectionFactory::newSshCommandConnection(
+  QObject *parentObject)
 {
 #ifdef WIN32
-  return newSshCommand(Putty, parentObject);
+  return newSshCommandConnection(Putty, parentObject);
 #else
-  return newSshCommand(OpenSsh, parentObject);
+  return newSshCommandConnection(OpenSsh, parentObject);
 #endif
 }
 
-SshCommand *SshCommandFactory::newSshCommand(SshClient sshClient,
-                                             QObject *parentObject)
+SshCommandConnection *SshCommandConnectionFactory::newSshCommandConnection(
+  SshClient sshClient,
+  QObject *parentObject)
 {
     switch(sshClient) {
     case OpenSsh:
-      return new OpenSshCommand(parentObject);
+      return new OpenSshCommandConnection(parentObject);
 #ifdef WIN32
     case Putty:
-      return new PuttyCommand(parentObject);
+      return new PuttyCommandConnection(parentObject);
 #endif
     default:
-      qFatal("Can not create ssh command for: %d", sshClient);
+      qFatal("Can not create ssh command connection: " + sshClient);
       return NULL;
     }
 }
 
-QString SshCommandFactory::defaultSshCommand()
+QString SshCommandConnectionFactory::defaultSshCommand()
 {
 #ifdef WIN32
   return QString("plink");
@@ -79,7 +81,8 @@ QString SshCommandFactory::defaultSshCommand()
   return QString("ssh");
 #endif
 }
-QString SshCommandFactory::defaultScpCommand()
+
+QString SshCommandConnectionFactory::defaultScpCommand()
 {
 #ifdef WIN32
   return QString("pscp");
@@ -87,4 +90,5 @@ QString SshCommandFactory::defaultScpCommand()
   return QString("scp");
 #endif
 }
+
 } // End MoleQueue namespace

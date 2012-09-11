@@ -20,17 +20,16 @@ using namespace MoleQueue;
 
 DummyQueueRemote::DummyQueueRemote(const QString &queueName,
                                    QueueManager *parentObject)
-  : MoleQueue::QueueRemoteSsh(queueName, parentObject),
-    m_dummySsh(NULL)
+  : MoleQueue::QueueRemoteSsh(queueName, parentObject)
 {
   m_launchScriptName = "launcher.dummy";
   m_launchTemplate = "Run job $$moleQueueId$$!!";
+  m_sshConnection = new DummySshConnection(this);
 }
 
 DummyQueueRemote::~DummyQueueRemote()
 {
-  if (!m_dummySsh.isNull())
-    m_dummySsh->deleteLater();
+
 }
 
 bool DummyQueueRemote::parseQueueId(const QString &submissionOutput,
@@ -52,4 +51,9 @@ bool DummyQueueRemote::parseQueueLine(const QString &queueListOutput,
   *queueId = static_cast<IdType>(split.at(0).toULongLong());
   *state = stringToJobState(split.at(1).toUtf8().constData());
   return true;
+}
+
+SshOperation *DummyQueueRemote::getDummySshOperation() {
+  DummySshConnection* con = qobject_cast<DummySshConnection*>(m_sshConnection);
+  return con->getDummyOperation();
 }

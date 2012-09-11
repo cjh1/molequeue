@@ -14,8 +14,8 @@
 
 ******************************************************************************/
 
-#ifndef PUTTYCOMMAND_H
-#define PUTTYCOMMAND_H
+#ifndef PUTTYCOMMANDCONNECTION_H
+#define PUTTYCOMMANDCONNECTION_H
 
 #include "sshcommand.h"
 
@@ -25,23 +25,27 @@ class TerminalProcess;
 
 
 /**
- * @class PuttyCommand puttycommand.h <molequeue/puttycommand.h>
- * @brief Concrete implementation of SshCommand using commandline plink/pscp.
+ * @class PuttyCommandConnnection puttycommandconnection.h
+ * <molequeue/puttycommandconnection.h>
+ *
+ * @brief Concrete implementation of SshCommandConnection using
+ * commandline plink/pscp.
  * @author Marcus D. Hanwell, David C. Lonie, Chris Harris
  *
- * The PuttyCommand provides an implementation of the SshCommand interface
- * that calls the commandline plink and pscp executables in a TerminalProcess.
+ * The PuttyCommandConnection provides an implementation of the
+ * SshCommandConnection interface  * that calls the commandline plink and
+ * pscp executables in a TerminalProcess.
  *
  * When writing code that needs ssh functionality, the code should use the
  * SshConnection interface instead.
  */
-class PuttyCommand : public SshCommand
+class PuttyCommandConnection : public SshCommandConnection
 {
   Q_OBJECT
 
 public:
-  PuttyCommand(QObject *parentObject = 0);
-  ~PuttyCommand();
+  PuttyCommandConnection(QObject *parentObject = 0);
+  ~PuttyCommandConnection();
 
 protected:
 

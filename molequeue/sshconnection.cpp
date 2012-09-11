@@ -29,60 +29,6 @@ SshConnection::~SshConnection()
 {
 }
 
-bool SshConnection::isValid() const
-{
-  if (m_hostName.isEmpty())
-    return false;
-  else
-    return true;
-}
-
-QString SshConnection::output() const
-{
-  return "";
-}
-
-int SshConnection::exitCode() const
-{
-  return -1;
-}
-
-bool SshConnection::waitForCompletion(int)
-{
-  return false;
-}
-
-bool SshConnection::isComplete() const
-{
-  return false;
-}
-
-bool SshConnection::execute(const QString &)
-{
-  // Always fails in the base class - no valid transport.
-  return false;
-}
-
-bool SshConnection::copyTo(const QString &, const QString &)
-{
-  return false;
-}
-
-bool SshConnection::copyFrom(const QString &, const QString &)
-{
-  return false;
-}
-
-bool SshConnection::copyDirTo(const QString &, const QString &)
-{
-  return false;
-}
-
-bool SshConnection::copyDirFrom(const QString &, const QString &)
-{
-  return false;
-}
-
 bool SshConnection::debug()
 {
   const char *val = qgetenv("MOLEQUEUE_DEBUG_SSH");

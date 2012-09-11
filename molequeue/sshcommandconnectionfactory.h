@@ -17,7 +17,7 @@
 #ifndef SSHCOMMANDFACTORY_H
 #define SSHCOMMANDFACTORY_H
 
-#include "sshcommand.h"
+#include "sshcommandconnection.h"
 
 namespace MoleQueue {
 
@@ -29,7 +29,7 @@ namespace MoleQueue {
  * @author Chris Harris
  *
  */
-class SshCommandFactory: public QObject
+class SshCommandConnectionFactory: public QObject
 {
   Q_OBJECT
 
@@ -43,19 +43,20 @@ public:
 #endif
     };
 
-    static SshCommandFactory *instance();
+    static SshCommandConnectionFactory *instance();
     static QString defaultSshCommand();
     static QString defaultScpCommand();
 
     /**
-     * @return a new SshCommand for this platform, the caller is responsible
-     * for cleanup
+     * @return a new SshCommandConnection for this platform, the caller
+     * is responsible for cleanup
      */
-    SshCommand *newSshCommand(QObject *parentObject = 0);
-    SshCommand *newSshCommand(SshClient sshClient, QObject *parentObject = 0);
+    SshCommandConnection *newSshCommandConnection(QObject *parentObject = 0);
+    SshCommandConnection *newSshCommandConnection(SshClient sshClient,
+                                                  QObject *parentObject = 0);
 
 private:
-   SshCommandFactory(QObject *parentObject = 0);
+      SshCommandConnectionFactory(QObject* parentObject = 0);
 };
 
 } // End namespace

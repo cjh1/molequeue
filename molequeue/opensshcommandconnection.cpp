@@ -14,7 +14,7 @@
 
 ******************************************************************************/
 
-#include "opensshcommand.h"
+#include "opensshcommandconnection.h"
 #include "terminalprocess.h"
 #include <QtCore/QProcessEnvironment>
 #include <QtCore/QDir>
@@ -22,16 +22,16 @@
 
 namespace MoleQueue {
 
-OpenSshCommand::OpenSshCommand(QObject *parentObject) : SshCommand(parentObject,
-                                                                   "ssh", "scp")
+OpenSshCommandConnection::OpenSshCommandConnection(QObject *parentObject)
+  : SshCommandConnection("ssh", "scp", parentObject)
 {
 }
 
-OpenSshCommand::~OpenSshCommand()
+OpenSshCommandConnection::~OpenSshCommandConnection()
 {
 }
 
-QStringList OpenSshCommand::sshArgs()
+QStringList OpenSshCommandConnection::sshArgs()
 {
   QStringList args;
   // Suppress login banners
@@ -44,13 +44,14 @@ QStringList OpenSshCommand::sshArgs()
   return args;
 }
 
-QStringList OpenSshCommand::scpArgs()
+QStringList OpenSshCommandConnection::scpArgs()
 {
   QStringList args;
   // Suppress login banners
   args << "-q";
   // Ensure the same SSH used for commands is used by scp.
   args << "-S" << m_sshCommand;
+
   if (!m_identityFile.isEmpty())
     args << "-i" << m_identityFile;
   if (m_portNumber >= 0 && m_portNumber != 22)

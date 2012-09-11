@@ -462,6 +462,7 @@ void Server::jobSubmissionRequested(MoleQueue::Connection *connection,
   }
 
   // Check program
+  qDebug() << job.program();
   Program *program = queue->lookupProgram(job.program());
   if (!program) {
     sendFailedSubmissionResponse(connection, replyTo,

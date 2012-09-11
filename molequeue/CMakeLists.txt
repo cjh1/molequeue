@@ -53,7 +53,7 @@ set(mq_srcs
   openwithmanagerdialog.cpp
   openwithexecutablemodel.cpp
   openwithpatternmodel.cpp
-  opensshcommand.cpp
+  opensshcommandconnection.cpp
   patterntypedelegate.cpp
   pluginmanager.cpp
   program.cpp
@@ -73,8 +73,10 @@ set(mq_srcs
   remotequeuewidget.cpp
   server.cpp
   sshcommand.cpp
-  sshcommandfactory.cpp
+  sshcommandconnection.cpp
+  sshcommandconnectionfactory.cpp
   sshconnection.cpp
+  sshoperation.cpp
   templatekeyworddialog.cpp
   terminalprocess.cpp
 )

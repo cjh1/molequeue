@@ -65,7 +65,7 @@ bool QueueSge::parseQueueId(const QString &submissionOutput, IdType *queueId)
 
 QString QueueSge::generateQueueRequestCommand()
 {
-  return QString ("%1 -u %2").arg(m_requestQueueCommand).arg(m_userName);
+  return QString ("%1 -u %2").arg(m_requestQueueCommand).arg(userName());
 }
 
 bool QueueSge::parseQueueLine(const QString &queueListOutput,

@@ -18,6 +18,7 @@
 #define QUEUEREMOTESSH_H
 
 #include "remote.h"
+#include "sshcommandconnection.h"
 
 class QTimer;
 
@@ -25,6 +26,7 @@ namespace MoleQueue
 {
 class QueueManager;
 class SshConnection;
+
 
 /// @brief QueueRemote subclass for interacting with a generic Remote queue
 ///        over SSH.
@@ -65,64 +67,49 @@ public:
   void importConfiguration(QSettings &importer,
                            bool includePrograms = true);
 
-  void setSshExecutable(const QString &exe)
-  {
-    m_sshExecutable = exe;
-  }
-
-  QString sshExecutable() const
-  {
-    return m_sshExecutable;
-  }
-
-  void setScpExecutable(const QString &exe)
-  {
-    m_scpExecutable = exe;
-  }
-
-  QString scpExectuable() const
-  {
-    return m_scpExecutable;
-  }
+  void setSshExecutable(const QString &exe);
+  QString sshExecutable() const;
+  void setScpExecutable(const QString &exe);
+  QString scpExectuable() const;
 
   void setHostName(const QString &host)
   {
-    m_hostName = host;
+    m_sshConnection->setHostName(host);
   }
 
   QString hostName() const
   {
-    return m_hostName;
+    return m_sshConnection->hostName();
   }
 
   void setUserName(const QString &user)
   {
-    m_userName = user;
+    m_sshConnection->setUserName(user);
   }
 
   QString userName() const
   {
-    return m_userName;
+    return m_sshConnection->userName();
   }
 
   void setIdentityFile(const QString &identity)
   {
-    m_identityFile = identity;
+    m_sshConnection->setIdentityFile(identity);
   }
 
   QString identityFile() const
   {
-    return m_identityFile;
+    return m_sshConnection->identityFile();
   }
 
   void setSshPort(int port)
   {
-    m_sshPort = port;
+    m_sshConnection->setPortNumber(port);
   }
 
   int sshPort() const
   {
-    return m_sshPort;
+    return m_sshConnection->portNumber();
   }
 
   void setSubmissionCommand(const QString &command)
@@ -184,11 +171,6 @@ protected slots:
 
 protected:
   /**
-   * @return a new SshConnection, the caller assumes ownership
-   */
-  virtual SshConnection *newSshConnection();
-
-  /**
    * Extract the job id from the submission output. Reimplement this in derived
    * classes.
    * @param submissionOutput Output from m_submissionCommand
@@ -215,12 +197,6 @@ protected:
   virtual bool parseQueueLine(const QString &queueListOutput, IdType *queueId,
                               MoleQueue::JobState *state) = 0;
 
-  QString m_sshExecutable;
-  QString m_scpExecutable;
-  QString m_hostName;
-  QString m_userName;
-  QString m_identityFile;
-  int m_sshPort;
   bool m_isCheckingQueue;
 
   QString m_submissionCommand;
@@ -231,6 +207,8 @@ protected:
   /// e.g. PBS/Torque, which return 153 if you request the status of a job that
   /// has completed.
   QList<int> m_allowedQueueRequestExitCodes;
+
+  SshConnection *m_sshConnection;
 
 };
 

@@ -15,6 +15,8 @@
 ******************************************************************************/
 
 #include "sshcommand.h"
+#include "sshcommandconnection.h"
+
 
 #include "logger.h"
 #include "terminalprocess.h"
@@ -25,30 +27,19 @@
 
 namespace MoleQueue {
 
-SshCommand::SshCommand(QObject *parentObject, QString ssh,
-                       QString scp) : SshConnection(parentObject),
-  m_sshCommand(ssh),
-  m_scpCommand(scp),
-  m_exitCode(-1),
+SshCommand::SshCommand(SshCommandConnection *connection) :
+  SshOperation(connection),
   m_process(0),
-  m_isComplete(true)
+  m_isComplete(true),
+  m_commandConnection(connection)
 {
+  m_errorCode = -1;
 }
 
 SshCommand::~SshCommand()
 {
   delete m_process;
   m_process = 0;
-}
-
-QString SshCommand::output() const
-{
-  return isComplete() ? m_output : QString();
-}
-
-int SshCommand::exitCode() const
-{
-  return isComplete() ? m_exitCode : -1;
 }
 
 bool SshCommand::waitForCompletion(int msecs)
@@ -70,103 +61,159 @@ bool SshCommand::isComplete() const
   return m_isComplete;
 }
 
-bool SshCommand::execute(const QString &command)
+SshTransferCommand::SshTransferCommand(SshCommandConnection *connection,
+                                       const QString &localPath,
+                                       const QString &remotePath) :
+  SshCommand(connection), m_localPath(localPath), m_remotePath(remotePath)
 {
-  if (!isValid())
-    return false;
 
-  QStringList args = sshArgs();
-  args << remoteSpec() << command;
-
-  sendRequest(m_sshCommand, args);
-
-  return true;
 }
 
-bool SshCommand::copyTo(const QString &localFile, const QString &remoteFile)
+
+SshFileUploadCommand::SshFileUploadCommand(SshCommandConnection *connection,
+                                           const QString &localFile,
+                                           const QString &remoteFile) :
+  SshTransferCommand(connection, localFile, remoteFile)
 {
-  if (!isValid())
+
+}
+
+bool SshFileUploadCommand::copyTo(const QString &localFile, const QString &remoteFile)
+{
+  if (!m_commandConnection->isValid())
     return false;
 
-  QStringList args = scpArgs();
+  QStringList args = m_commandConnection->scpArgs();
   QString remoteFileSpec = remoteSpec() + ":" + remoteFile;
   args << localFile << remoteFileSpec;
 
-  sendRequest(m_scpCommand, args);
+  qDebug() << "args: " << args;
+
+  sendRequest(m_commandConnection->scpCommand(), args);
 
   return true;
 }
 
-bool SshCommand::copyFrom(const QString &remoteFile, const QString &localFile)
+bool SshFileUploadCommand::execute()
 {
-  if (!isValid())
+  return copyTo(m_localPath, m_remotePath);
+}
+
+
+SshFileDownloadCommand::SshFileDownloadCommand(SshCommandConnection *connection,
+                                               const QString &remoteFile,
+                                               const QString &localFile) :
+  SshTransferCommand(connection, localFile, remoteFile)
+{
+
+}
+
+bool SshFileDownloadCommand::copyFrom(const QString &remoteFile, const QString &localFile)
+{
+  if (!m_commandConnection->isValid())
     return false;
 
-  QStringList args = scpArgs();
+  QStringList args = m_commandConnection->scpArgs();
   QString remoteFileSpec = remoteSpec() + ":" + remoteFile;
   args << remoteFileSpec << localFile;
 
-  sendRequest(m_scpCommand, args);
+  sendRequest(m_commandConnection->scpCommand(), args);
 
   return true;
 }
 
-bool SshCommand::copyDirTo(const QString &localDir, const QString &remoteDir)
+bool SshFileDownloadCommand::execute()
 {
-  if (!isValid())
+  return copyFrom(m_remotePath, m_localPath);
+}
+
+
+SshDirUploadCommand::SshDirUploadCommand(SshCommandConnection *connection,
+                                         const QString &localDir,
+                                         const QString &remoteDir) :
+  SshTransferCommand(connection, localDir, remoteDir)
+{
+
+}
+
+
+bool SshDirUploadCommand::copyDirTo(const QString &localDir, const QString &remoteDir)
+{
+  if (!m_commandConnection->isValid())
     return false;
 
-  QStringList args = scpArgs();
+  QStringList args = m_commandConnection->scpArgs();
   QString remoteDirSpec = remoteSpec() + ":" + remoteDir;
   args << "-r" << localDir << remoteDirSpec;
 
-  sendRequest(m_scpCommand, args);
+  sendRequest(m_commandConnection->scpCommand(), args);
+
+  qDebug() << "args: " << args;
 
   return true;
 }
 
-bool SshCommand::copyDirFrom(const QString &remoteDir, const QString &localDir)
+bool SshDirUploadCommand::execute()
 {
-  if (!isValid())
+  return copyDirTo(m_localPath, m_remotePath);
+
+}
+
+SshDirDownloadCommand::SshDirDownloadCommand(SshCommandConnection *connection,
+                                             const QString &remoteDir,
+                                             const QString &localDir) :
+  SshTransferCommand(connection, localDir, remoteDir)
+{
+
+}
+
+bool SshDirDownloadCommand::copyDirFrom(const QString &remoteDir, const QString &localDir)
+{
+  if (!m_commandConnection->isValid())
     return false;
 
   QDir local(localDir);
   if (!local.exists())
     local.mkpath(localDir); /// @todo Check for failure of mkpath
 
-  QStringList args = scpArgs();
+  QStringList args = m_commandConnection->scpArgs();
   QString remoteDirSpec = remoteSpec() + ":" + remoteDir;
   args << "-r" << remoteDirSpec << localDir;
 
-  sendRequest(m_scpCommand, args);
+  sendRequest(m_commandConnection->scpCommand(), args);
 
   return true;
+}
+
+bool SshDirDownloadCommand::execute()
+{
+  return copyDirFrom(m_remotePath, m_localPath);
 }
 
 void SshCommand::processStarted()
 {
   m_process->closeWriteChannel();
-  emit requestSent();
 }
 
 void SshCommand::processFinished()
 {
   m_output = m_process->readAll();
-  m_exitCode = m_process->exitCode();
+  m_errorCode = m_process->exitCode();
   m_process->close();
 
   if (debug()) {
     Logger::logDebugMessage(tr("SSH finished (%1) Exit code: %2\n%3")
                             .arg(reinterpret_cast<quint64>(this))
-                            .arg(m_exitCode).arg(m_output));
+                            .arg(m_errorCode).arg(m_output));
   }
 
   m_isComplete = true;
-  emit requestComplete();
+  emit complete();
 }
 
 void SshCommand::sendRequest(const QString &command, const QStringList &args)
 {
+  qDebug() << "SshCommand::sendRequest(" << command;
   if (!m_process)
     initializeProcess();
 
@@ -208,7 +255,41 @@ void SshCommand::initializeProcess()
 
 QString SshCommand::remoteSpec()
 {
-  return m_userName.isEmpty() ? m_hostName : m_userName + "@" + m_hostName;
+  return m_commandConnection->userName().isEmpty() ?
+         m_commandConnection->hostName() :
+         m_commandConnection->userName() + "@"
+         + m_commandConnection->hostName();
+}
+
+bool SshCommand::debug()
+{
+  const char *val = qgetenv("MOLEQUEUE_DEBUG_SSH");
+  return (val != NULL && val[0] != '\0');
+}
+
+SshExecCommand::SshExecCommand(SshCommandConnection *connection,
+                           const QString &command) :
+  SshCommand(connection), m_command(command)
+{
+
+}
+
+bool SshExecCommand::execute(const QString &command)
+{
+  if (!m_commandConnection->isValid())
+    return false;
+
+  QStringList args = m_commandConnection->sshArgs();
+  args << remoteSpec() << command;
+
+  sendRequest(m_commandConnection->sshCommand(), args);
+
+  return true;
+}
+
+bool SshExecCommand::execute()
+{
+  return execute(m_command);
 }
 
 } // End namespace

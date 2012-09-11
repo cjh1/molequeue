@@ -208,9 +208,11 @@ void QueueRemoteTest::testSubmissionPipeline()
   //////////////////////////
 
   // validate the ssh command
-  DummySshCommand *ssh = m_queue->getDummySshCommand();
-  QCOMPARE(ssh->getDummyCommand(), QString("scp"));
-  QCOMPARE(ssh->getDummyArgs(), QStringList()
+  DummySshDirUploadOperation *dirUpload
+    = qobject_cast<DummySshDirUploadOperation *>(m_queue->getDummySshOperation());
+
+  QCOMPARE(dirUpload->getDummyCommand(), QString("scp"));
+  QCOMPARE(dirUpload->getDummyArgs(), QStringList()
            << "-q"
            << "-S" << "ssh"
            << "-P" << "6887"
@@ -218,13 +220,13 @@ void QueueRemoteTest::testSubmissionPipeline()
            << "/tmp/MoleQueue-dummyServer//4"
            << "aUser@some.host.somewhere:/some/path/4"
            );
-  QCOMPARE(ssh->data().value<Job>(), job);
+  QCOMPARE(dirUpload->data().value<Job>(), job);
 
   // Fake the process output. Pretend that the remote working dir hasn't been
   // created yet.
-  ssh->setDummyExitCode(1);
-  ssh->setDummyOutput("No such file or directory");
-  ssh->emitDummyRequestComplete(); // triggers inputFilesCopied
+  dirUpload->setDummyExitCode(1);
+  dirUpload->setDummyOutput("No such file or directory");
+  dirUpload->emitDummyComplete(); // triggers inputFilesCopied
 
   //////////////////////
   // inputFilesCopied // // Should detect that the parent dir doesn't exist
@@ -235,19 +237,20 @@ void QueueRemoteTest::testSubmissionPipeline()
   ///////////////////////////
 
   // Grab the dummy ssh command from the queue and validate its contents
-  ssh = m_queue->getDummySshCommand();
-  QCOMPARE(ssh->getDummyCommand(), QString("ssh"));
-  QCOMPARE(ssh->getDummyArgs(), QStringList()
+  DummySshExecOperation *execCommand
+    = qobject_cast<DummySshExecOperation *>(m_queue->getDummySshOperation());
+  QCOMPARE(execCommand->getDummyCommand(), QString("ssh"));
+  QCOMPARE(execCommand->getDummyArgs(), QStringList()
            << "-q"
            << "-p" << "6887"
            << "aUser@some.host.somewhere"
            << "mkdir -p /some/path"
            );
-  QCOMPARE(ssh->data().value<Job>(), job);
+  QCOMPARE(execCommand->data().value<Job>(), job);
 
   // Fake the process output
-  ssh->setDummyExitCode(0);
-  ssh->emitDummyRequestComplete(); // triggers remoteDirectoryCreated
+  execCommand->setDummyExitCode(0);
+  execCommand->emitDummyComplete(); // triggers remoteDirectoryCreated
 
   ////////////////////////////
   // remoteDirectoryCreated // // calls copyInputFilesToHost
@@ -258,9 +261,10 @@ void QueueRemoteTest::testSubmissionPipeline()
   //////////////////////////
 
   // validate the ssh command
-  ssh = m_queue->getDummySshCommand();
-  QCOMPARE(ssh->getDummyCommand(), QString("scp"));
-  QCOMPARE(ssh->getDummyArgs(), QStringList()
+  dirUpload =
+    qobject_cast<DummySshDirUploadOperation *>(m_queue->getDummySshOperation());
+  QCOMPARE(dirUpload->getDummyCommand(), QString("scp"));
+  QCOMPARE(dirUpload->getDummyArgs(), QStringList()
            << "-q"
            << "-S" << "ssh"
            << "-P" << "6887"
@@ -268,11 +272,11 @@ void QueueRemoteTest::testSubmissionPipeline()
            << "/tmp/MoleQueue-dummyServer//4"
            << "aUser@some.host.somewhere:/some/path/4"
            );
-  QCOMPARE(ssh->data().value<Job>(), job);
+  QCOMPARE(dirUpload->data().value<Job>(), job);
 
   // Fake the process output
-  ssh->setDummyExitCode(0);
-  ssh->emitDummyRequestComplete(); // triggers inputFilesCopied
+  dirUpload->setDummyExitCode(0);
+  dirUpload->emitDummyComplete(); // triggers inputFilesCopied
 
   //////////////////////
   // inputFilesCopied // // calls submitJobToRemoteQueue
@@ -283,19 +287,20 @@ void QueueRemoteTest::testSubmissionPipeline()
   ////////////////////////////
 
   // validate the ssh command
-  ssh = m_queue->getDummySshCommand();
-  QCOMPARE(ssh->getDummyCommand(), QString("ssh"));
-  QCOMPARE(ssh->getDummyArgs(), QStringList()
+  execCommand
+     = qobject_cast<DummySshExecOperation *>(m_queue->getDummySshOperation());
+  QCOMPARE(execCommand->getDummyCommand(), QString("ssh"));
+  QCOMPARE(execCommand->getDummyArgs(), QStringList()
            << "-q"
            << "-p" << "6887"
            << "aUser@some.host.somewhere"
            << "cd /some/path/4 && subComm launcher.dummy"
            );
-  QCOMPARE(ssh->data().value<Job>(), job);
+  QCOMPARE(execCommand->data().value<Job>(), job);
 
   // Fake the process output
-  ssh->setDummyExitCode(0);
-  ssh->emitDummyRequestComplete(); // triggers jobSubmittedToRemoteQueue
+  execCommand->setDummyExitCode(0);
+  execCommand->emitDummyComplete(); // triggers jobSubmittedToRemoteQueue
 
   ///////////////////////////////
   // jobSubmittedToRemoteQueue //
@@ -326,9 +331,11 @@ void QueueRemoteTest::testFinalizePipeline()
   ///////////////////////////////
 
   // validate the ssh command
-  DummySshCommand *ssh = m_queue->getDummySshCommand();
-  QCOMPARE(ssh->getDummyCommand(), QString("scp"));
-  QCOMPARE(ssh->getDummyArgs(), QStringList()
+  DummySshDirDownloadOperation *dirDownload
+      = qobject_cast<DummySshDirDownloadOperation *>(m_queue->getDummySshOperation());
+
+  QCOMPARE(dirDownload->getDummyCommand(), QString("scp"));
+  QCOMPARE(dirDownload->getDummyArgs(), QStringList()
            << "-q"
            << "-S" << "ssh"
            << "-P" << "6887"
@@ -336,11 +343,11 @@ void QueueRemoteTest::testFinalizePipeline()
            << "aUser@some.host.somewhere:/some/path/4"
            << "/tmp/MoleQueue-dummyServer//4/.."
            );
-  QCOMPARE(ssh->data().value<Job>(), job);
+  QCOMPARE(dirDownload->data().value<Job>(), job);
 
   // Fake the process output
-  ssh->setDummyExitCode(0);
-  ssh->emitDummyRequestComplete(); // triggers finalizeJobOutputCopiedFromServer
+  dirDownload->setDummyExitCode(0);
+  dirDownload->emitDummyComplete(); // triggers finalizeJobOutputCopiedFromServer
 
   ///////////////////////////////////////
   // finalizeJobOutputCopiedFromServer // (calls
@@ -374,19 +381,20 @@ void QueueRemoteTest::testFinalizePipeline()
   //////////////////////////
 
   // validate the ssh command
-  ssh = m_queue->getDummySshCommand();
-  QCOMPARE(ssh->getDummyCommand(), QString("ssh"));
-  QCOMPARE(ssh->getDummyArgs(), QStringList()
+  DummySshExecOperation *execCommand
+     = qobject_cast<DummySshExecOperation *>(m_queue->getDummySshOperation());
+  QCOMPARE(execCommand->getDummyCommand(), QString("ssh"));
+  QCOMPARE(execCommand->getDummyArgs(), QStringList()
            << "-q"
            << "-p" << "6887"
            << "aUser@some.host.somewhere"
            << "rm -rf /some/path/4"
            );
-  QCOMPARE(ssh->data().value<Job>(), job);
+  QCOMPARE(execCommand->data().value<Job>(), job);
 
   // Fake the process output
-  ssh->setDummyExitCode(0);
-  ssh->emitDummyRequestComplete(); // triggers remoteDirectoryCleaned
+  execCommand->setDummyExitCode(0);
+  execCommand->emitDummyComplete(); // triggers remoteDirectoryCleaned
 
   ////////////////////////////
   // remoteDirectoryCleaned //
@@ -412,19 +420,20 @@ void QueueRemoteTest::testKillPipeline()
   //////////////////
 
   // validate the ssh command
-  DummySshCommand *ssh = m_queue->getDummySshCommand();
-  QCOMPARE(ssh->getDummyCommand(), QString("ssh"));
-  QCOMPARE(ssh->getDummyArgs(), QStringList()
+  DummySshExecOperation *execCommand
+     = qobject_cast<DummySshExecOperation *>(m_queue->getDummySshOperation());
+  QCOMPARE(execCommand->getDummyCommand(), QString("ssh"));
+  QCOMPARE(execCommand->getDummyArgs(), QStringList()
            << "-q"
            << "-p" << "6887"
            << "aUser@some.host.somewhere"
            << "killComm 988"
            );
-  QCOMPARE(ssh->data().value<Job>(), job);
+  QCOMPARE(execCommand->data().value<Job>(), job);
 
   // Fake the process output
-  ssh->setDummyExitCode(0);
-  ssh->emitDummyRequestComplete(); // triggers endKillJob
+  execCommand->setDummyExitCode(0);
+  execCommand->emitDummyComplete(); // triggers endKillJob
 
   ////////////////
   // endKillJob //
@@ -461,9 +470,10 @@ void QueueRemoteTest::testQueueUpdate()
   ////////////////////////
 
   // validate the ssh command
-  DummySshCommand *ssh = m_queue->getDummySshCommand();
-  QCOMPARE(ssh->getDummyCommand(), QString("ssh"));
-  QCOMPARE(ssh->getDummyArgs(), QStringList()
+  DummySshExecOperation *execCommand
+       = qobject_cast<DummySshExecOperation *>(m_queue->getDummySshOperation());
+  QCOMPARE(execCommand->getDummyCommand(), QString("ssh"));
+  QCOMPARE(execCommand->getDummyArgs(), QStringList()
            << "-q"
            << "-p" << "6887"
            << "aUser@some.host.somewhere"
@@ -471,9 +481,9 @@ void QueueRemoteTest::testQueueUpdate()
            );
 
   // Fake the process output
-  ssh->setDummyExitCode(0);
-  ssh->setDummyOutput(output);
-  ssh->emitDummyRequestComplete(); // triggers handleQueueUpdate
+  execCommand->setDummyExitCode(0);
+  execCommand->setDummyOutput(output);
+  execCommand->emitDummyComplete(); // triggers handleQueueUpdate
 
   ///////////////////////
   // handleQueueUpdate //

@@ -170,6 +170,7 @@ protected:
   QString m_workingDirectoryBase;
 };
 
+
 } // End namespace
 
 #endif // QUEUEREMOTE_H

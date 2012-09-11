@@ -20,7 +20,7 @@
 #include "transport/localsocket/localsocketclient.h"
 #include "program.h"
 #include "queues/remotessh.h"
-#include "sshcommandfactory.h"
+#include "sshcommandconnectionfactory.h"
 #include "templatekeyworddialog.h"
 
 #include <QtCore/QTimer>
@@ -155,8 +155,8 @@ void RemoteQueueWidget::testConnection()
   }
 
   // Create SSH connection
-  SshCommand *conn = SshCommandFactory::instance()->newSshCommand();
-  conn->setSshCommand(sshCommand);
+  SshConnection *conn = SshCommandConnectionFactory::instance()
+                          ->newSshCommandConnection();
   conn->setHostName(host);
   conn->setUserName(user);
   conn->setIdentityFile(identityFile);
@@ -172,15 +172,18 @@ void RemoteQueueWidget::testConnection()
   prog->setRange(0, 0);
   prog->setValue(0);
 
+  SshOperation *op = conn->newCommand("echo ok");
+
   QTimer *timeout = new QTimer (this);
-  connect(conn, SIGNAL(requestComplete()),
+  connect(op, SIGNAL(complete()),
           prog, SLOT(accept()));
   connect(timeout, SIGNAL(timeout()),
           prog, SLOT(reject()));
 
   // Wait 15 seconds for timeout
   timeout->start(15000);
-  conn->execute("echo ok");
+
+  op->execute();
   prog->exec();
   prog->hide();
 
@@ -203,13 +206,13 @@ void RemoteQueueWidget::testConnection()
   prog->deleteLater();
 
   // Verify output and exit code
-  if (conn->exitCode() != 0 ||
-      conn->output().trimmed() != "ok") {
+  if (op->errorCode() != 0 ||
+      op->output().trimmed() != "ok") {
     QMessageBox::critical(this, tr("SSH Error"),
                           tr("The connection to %1@%2:%3 failed: "
                              "exit code: %4. Output:\n\n%5")
                           .arg(user).arg(host).arg(port)
-                          .arg(conn->exitCode()).arg(conn->output()));
+                          .arg(op->errorCode()).arg(op->output()));
     conn->deleteLater();
     return;
   }

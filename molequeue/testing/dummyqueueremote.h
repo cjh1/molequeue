@@ -21,6 +21,7 @@
 
 #include "dummysshcommand.h"
 
+
 #include <QtCore/QPointer>
 
 class QueueRemoteTest;
@@ -36,37 +37,16 @@ public:
 
   QString typeName() const { return "Dummy"; }
 
-  DummySshCommand *getDummySshCommand()
-  {
-    return m_dummySsh.data();
-  }
+  MoleQueue::SshOperation *getDummySshOperation();
 
   friend class QueueRemoteTest;
 
 protected:
-  MoleQueue::SshConnection *newSshConnection()
-  {
-    if (!m_dummySsh.isNull()) {
-      m_dummySsh->deleteLater();
-      m_dummySsh = NULL;
-    }
-
-    m_dummySsh = new DummySshCommand();
-    m_dummySsh->setHostName(m_hostName);
-    m_dummySsh->setUserName(m_userName);
-    m_dummySsh->setPortNumber(m_sshPort);
-    m_dummySsh->setParent(this);
-
-    return m_dummySsh.data();
-  }
-
   bool parseQueueId(const QString &submissionOutput,
                     MoleQueue::IdType *queueId);
 
   bool parseQueueLine(const QString &queueListOutput,
                       MoleQueue::IdType *queueId, MoleQueue::JobState *state);
-
-  QPointer<DummySshCommand> m_dummySsh;
 
 };
 
