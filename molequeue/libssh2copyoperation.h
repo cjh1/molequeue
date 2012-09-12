@@ -60,6 +60,9 @@ protected:
 private slots:
   void openSftpSession();
 
+private:
+  void init();
+
 };
 
 class RemoveRemoteDir : public SftpOperation
@@ -192,6 +195,9 @@ public:
 
 protected slots:
   void sftpTransfer();
+
+private:
+  void init();
 
 };
 

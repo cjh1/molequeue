@@ -24,6 +24,8 @@
 #include "../remotequeuewidget.h"
 #include "../server.h"
 #include "../sshcommandconnectionfactory.h"
+#include "../libssh2connection.h"
+#include "../askpassword.h"
 
 #include <QtCore/QTimer>
 #include <QtCore/QDebug>
@@ -42,14 +44,7 @@ QueueRemoteSsh::QueueRemoteSsh(const QString &queueName, QueueManager *parentObj
   // Always allow m_requestQueueCommand to return 0
   m_allowedQueueRequestExitCodes.append(0);
 
-  SshCommandConnection *commandConn = SshCommandConnectionFactory::instance()->
-    newSshCommandConnection(this);
-
-  commandConn->setPortNumber(22);
-  commandConn->setSshCommand(SshCommandConnectionFactory::defaultSshCommand());
-  commandConn->setScpCommand(SshCommandConnectionFactory::defaultScpCommand());
-
-  m_sshConnection = commandConn;
+  createConnection();
 }
 
 QueueRemoteSsh::~QueueRemoteSsh()
@@ -69,6 +64,7 @@ void QueueRemoteSsh::readSettings(QSettings &settings)
   setUserName(settings.value("userName").toString());
   setIdentityFile(settings.value("identityFile").toString());
   setSshPort(settings.value("sshPort").toInt());
+  setUseLibSsh2(settings.value("useLibSsh2").toBool());
 }
 
 void QueueRemoteSsh::writeSettings(QSettings &settings) const
@@ -78,12 +74,13 @@ void QueueRemoteSsh::writeSettings(QSettings &settings) const
   settings.setValue("submissionCommand", m_submissionCommand);
   settings.setValue("requestQueueCommand", m_requestQueueCommand);
   settings.setValue("killCommand", m_killCommand);
-  settings.setValue("sshExecutable", sshExecutable());
-  settings.setValue("scpExecutable", scpExectuable());
-  settings.setValue("hostName", hostName());
-  settings.setValue("userName", userName());
-  settings.setValue("identityFile", identityFile());
-  settings.setValue("sshPort",  sshPort());
+  settings.setValue("sshExecutable", m_sshExecutable);
+  settings.setValue("scpExecutable", m_scpExecutable);
+  settings.setValue("hostName", m_hostName);
+  settings.setValue("userName", m_userName);
+  settings.setValue("identityFile", m_identityFile);
+  settings.setValue("sshPort",  m_sshPort);
+  settings.setValue("useLibSsh2", m_useLibSsh2);
 }
 
 void QueueRemoteSsh::exportConfiguration(QSettings &exporter,
@@ -94,8 +91,8 @@ void QueueRemoteSsh::exportConfiguration(QSettings &exporter,
   exporter.setValue("submissionCommand", m_submissionCommand);
   exporter.setValue("requestQueueCommand", m_requestQueueCommand);
   exporter.setValue("killCommand", m_killCommand);
-  exporter.setValue("hostName", hostName());
-  exporter.setValue("sshPort",  sshPort());
+  exporter.setValue("hostName", m_hostName);
+  exporter.setValue("sshPort",  m_sshPort);
 }
 
 void QueueRemoteSsh::importConfiguration(QSettings &importer,
@@ -250,6 +247,8 @@ void QueueRemoteSsh::submitJobToRemoteQueue(Job job)
       .arg(m_submissionCommand)
       .arg(m_launchScriptName);
 
+  qDebug() << "submit command: " << command;
+
   SshOperation *op = m_sshConnection->newCommand(command);
   op->setData(QVariant::fromValue(job));
   connect(op, SIGNAL(complete()),
@@ -278,6 +277,9 @@ void QueueRemoteSsh::jobSubmittedToRemoteQueue()
   op->deleteLater();
 
   IdType queueId;
+
+  qDebug()<<"op output: " << op->output();
+
   parseQueueId(op->output(), &queueId);
   Job job = op->data().value<Job>();
 
@@ -430,6 +432,7 @@ void QueueRemoteSsh::finalizeJobCopyFromServer(Job job)
   QString remoteDir =
       QString("%1/%2").arg(m_workingDirectoryBase).arg(job.moleQueueId());
 
+  qDebug() << "Dir download: " << remoteDir << "local: " <<localDir;
   SshOperation *op = m_sshConnection->newDirDownload(remoteDir, localDir);
   op->setData(QVariant::fromValue(job));
   connect(op, SIGNAL(complete()),
@@ -641,43 +644,51 @@ QString QueueRemoteSsh::generateQueueRequestCommand()
 
 void QueueRemoteSsh::setSshExecutable(const QString &exe)
 {
-  SshCommandConnection *commandConn
-    = qobject_cast<SshCommandConnection *>(m_sshConnection);
-
-  if(commandConn)
-    commandConn->setSshCommand(exe);
+  m_sshExecutable = exe;
 }
 
 QString QueueRemoteSsh::sshExecutable() const
 {
-  SshCommandConnection *commandConn
-    = qobject_cast<SshCommandConnection *>(m_sshConnection);
-
-  if(commandConn)
-    return commandConn->sshCommand();
-  else
-    return NULL;
+  return m_sshExecutable;
 }
 
 void QueueRemoteSsh::setScpExecutable(const QString &exe)
 {
-  SshCommandConnection *commandConn
-       = qobject_cast<SshCommandConnection *>(m_sshConnection);
-
-  if(commandConn)
-     commandConn->setScpCommand(exe);
+  m_scpExecutable = exe;
 }
 
 QString QueueRemoteSsh::scpExectuable() const
 {
-  SshCommandConnection *commandConn
-    = qobject_cast<SshCommandConnection *>(m_sshConnection);
-
-  if(commandConn)
-    return commandConn->scpCommand();
-  else
-    return NULL;
+  return m_scpExecutable;
 }
 
+void QueueRemoteSsh::recreateConnection() {
+  delete m_sshConnection;
+  createConnection();
+}
+
+void QueueRemoteSsh::createConnection() {
+
+  if(!m_useLibSsh2) {
+    SshCommandConnection *commandConn = SshCommandConnectionFactory::instance()->
+      newSshCommandConnection(this);
+
+    commandConn->setSshCommand(SshCommandConnectionFactory::defaultSshCommand());
+    commandConn->setScpCommand(SshCommandConnectionFactory::defaultScpCommand());
+    m_sshConnection = commandConn;
+    m_sshConnection->setHostName(m_hostName);
+    m_sshConnection->setUserName(m_userName);
+    m_sshConnection->setPortNumber(m_sshPort);
+    m_sshConnection->setIdentityFile(m_identityFile);
+
+  }
+  else {
+    AskPassword *askPassword = new QDialogAskPassword(this);
+    m_sshConnection = new LibSsh2Connection(m_hostName,
+                                            m_userName,
+                                            m_sshPort,
+                                            askPassword);
+  }
+}
 
 } // End namespace

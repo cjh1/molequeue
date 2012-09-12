@@ -60,16 +60,13 @@ protected:
   LibSsh2Connection *m_connection;
   SocketNotifier *m_readNotifier;
   SocketNotifier *m_writeNotifier;
-  QString m_output;
-  QString m_errorString;
-  int m_errorCode;
 
   void disableNotifiers();
   void waitForSocket(const char *slot);
   void completeWithError();
 
 private:
-
+  void init();
 
 };
 
@@ -96,6 +93,7 @@ private:
 
 
 
+
 };
 //class CopyOperation: public Operation {};
 
@@ -109,10 +107,6 @@ public:
                        LibSsh2Connection *connection,
                        LIBSSH2_CHANNEL *channel);
 
-  QByteArray data() {
-    return m_data;
-  }
-
 signals:
   void readComplete();
 
@@ -120,10 +114,12 @@ signals:
 public slots:
   bool execute();
   void read();
+  void readStdOut();
+  void readStdErr();
 
 
 private:
-  QByteArray m_data;
+  QByteArray m_buffer;
   int m_socket;
   LIBSSH2_CHANNEL *m_channel;
 };

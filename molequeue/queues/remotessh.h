@@ -74,42 +74,58 @@ public:
 
   void setHostName(const QString &host)
   {
-    m_sshConnection->setHostName(host);
+    bool recreate = host != m_hostName;
+    m_hostName = host;
+
+    if(recreate)
+      recreateConnection();
   }
 
   QString hostName() const
   {
-    return m_sshConnection->hostName();
+    return m_hostName;
   }
 
   void setUserName(const QString &user)
   {
-    m_sshConnection->setUserName(user);
+    bool recreate = user != m_userName;
+    m_userName = user;
+
+    if(recreate)
+      recreateConnection();
   }
 
   QString userName() const
   {
-    return m_sshConnection->userName();
+    return m_userName;
   }
 
   void setIdentityFile(const QString &identity)
   {
-    m_sshConnection->setIdentityFile(identity);
+    bool recreate = identity != m_identityFile;
+    m_identityFile = identity;
+
+    if(recreate)
+      recreateConnection();
   }
 
   QString identityFile() const
   {
-    return m_sshConnection->identityFile();
+    return m_identityFile;
   }
 
   void setSshPort(int port)
   {
-    m_sshConnection->setPortNumber(port);
+    bool recreate = port != m_sshPort;
+    m_sshPort = port;
+
+    if(recreate)
+      recreateConnection();
   }
 
   int sshPort() const
   {
-    return m_sshConnection->portNumber();
+    return m_sshPort;
   }
 
   void setSubmissionCommand(const QString &command)
@@ -142,7 +158,23 @@ public:
     return m_requestQueueCommand;
   }
 
+  void setUseLibSsh2(bool use) {
+
+    bool recreate = use != m_useLibSsh2;
+    m_useLibSsh2 = use;
+
+    if(recreate)
+      recreateConnection();
+  }
+
+  bool useLibSsh2() {
+    return m_useLibSsh2;
+  }
+
   virtual AbstractQueueSettingsWidget* settingsWidget();
+
+  void createConnection();
+  void recreateConnection();
 
 public slots:
   void requestQueueUpdate();
@@ -197,6 +229,13 @@ protected:
   virtual bool parseQueueLine(const QString &queueListOutput, IdType *queueId,
                               MoleQueue::JobState *state) = 0;
 
+  QString m_sshExecutable;
+  QString m_scpExecutable;
+  QString m_hostName;
+  QString m_userName;
+  QString m_identityFile;
+  int m_sshPort;
+
   bool m_isCheckingQueue;
 
   QString m_submissionCommand;
@@ -209,6 +248,7 @@ protected:
   QList<int> m_allowedQueueRequestExitCodes;
 
   SshConnection *m_sshConnection;
+  bool m_useLibSsh2;
 
 };
 

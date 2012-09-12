@@ -221,7 +221,7 @@
          <item>
           <widget class="QTabWidget" name="sshTabWidget">
            <property name="currentIndex">
-            <number>0</number>
+            <number>1</number>
            </property>
            <widget class="QWidget" name="sshBasicTab">
             <attribute name="title">
@@ -355,6 +355,13 @@
                </property>
                <property name="buddy">
                 <cstring>sshExecutableEdit</cstring>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="0">
+              <widget class="QCheckBox" name="useLibSsh2CheckBox">
+               <property name="text">
+                <string>Use libssh2</string>
                </property>
               </widget>
              </item>

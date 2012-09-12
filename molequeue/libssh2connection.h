@@ -43,6 +43,7 @@ namespace MoleQueue
 //
 //};
 
+class AskPassword;
 
 class LibSsh2Connection: public MoleQueue::SshConnection
 {
@@ -51,6 +52,7 @@ public:
   LibSsh2Connection(const QString &hostName,
                     const QString &userName,
                     int port = 22,
+                    AskPassword *askPass = 0,
                     QObject *parentObject = 0);
 
   void openSession();
@@ -66,21 +68,37 @@ public:
                             const QString &localDir);
   SshOperation *newDirRemove(const QString &remoteDir);
 
-  LIBSSH2_SESSION * session() {
-    return m_session;
-  };
+  LIBSSH2_SESSION * session();
 
   int socket() {
     return sock;
   };
 
+signals:
+  void sessionOpen();
+
 private:
   QString m_hostName;
   int m_port;
   QString m_userName;
-  QString m_password;
   LIBSSH2_SESSION *m_session;
   int sock;
+  AskPassword *m_askPassword;
+  SocketNotifier *m_readNotifier;
+
+private slots:
+  void userAuth(const QString& password);
+  void disableNotifiers();
+  void waitForSocket(const char *slot);
+
+
+
+
+
+
+
+
+
 };
 
 

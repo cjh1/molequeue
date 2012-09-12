@@ -17,11 +17,13 @@
 #include "libssh2connection.h"
 #include "libssh2operations.h"
 #include "libssh2copyoperation.h"
+#include "askpassword.h"
 
 #include <QDebug>
 #include <QHostInfo>
 #include <QList>
 #include <QtCore/QObject>
+#include <QtCore/QDir>
 
 
 //#include "libssh2_config.h"
@@ -65,18 +67,56 @@
 namespace MoleQueue
 {
 
+
+extern "C" {
+
+static char* passwd;
+
+
+static void kbd_callback(const char *name, int name_len,
+                         const char *instruction, int instruction_len, int num_prompts,
+                         const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
+                         LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses,
+                         void **abstract)
+{
+    printf("callback");
+    int i;
+    size_t n;
+    char buf[1024];
+    (void)abstract;
+
+    responses[i].text = strdup(passwd);
+    responses[i].length = strlen(passwd);
+
+    fwrite(prompts[0].text, 1, prompts[0].length, stdout);
+
+
+}
+
+}
+
+
+
 LibSsh2Connection::LibSsh2Connection(const QString &hostName,
                                      const QString &userName,
                                      int port,
+                                     AskPassword *askPass,
                                      QObject *parentObject) :
   SshConnection(parentObject), m_hostName(hostName), m_userName(userName),
-  m_port(port),m_password("test")
+  m_port(port), sock(NULL), m_session(NULL), m_askPassword(askPass),
+  m_readNotifier(NULL)
 {
-
+  connect(m_askPassword, SIGNAL(entered(const QString&)),
+          this, SLOT(userAuth(const QString&)));
 }
 
 void LibSsh2Connection::openSession()
 {
+  if(m_session != NULL) {
+    emit sessionOpen();
+    return;
+  }
+
   int i, auth_pw = 1;
   struct sockaddr_in sin;
   const char *fingerprint;
@@ -114,8 +154,10 @@ void LibSsh2Connection::openSession()
     return;
   }
 
+  qDebug() << "libssh2_session_init";
   /* Create a session instance */
   m_session = libssh2_session_init();
+
 
   if (!m_session)
     return;
@@ -150,19 +192,76 @@ void LibSsh2Connection::openSession()
   }
   fprintf(stderr, "\n");
 
+  m_askPassword->ask(tr("%1@%2").arg(m_userName).arg(m_hostName));
+}
+
+void LibSsh2Connection::userAuth(const QString &password)
+{
+
+  int rc;
+
   const char *username = m_userName.toLocal8Bit().data();
-  const char *password = m_password.toLocal8Bit().data();
+  char *pass = password.toLocal8Bit().data();
 
+  qDebug() << m_session;
+  qDebug() << m_userName;
 
-  while ((rc = libssh2_userauth_password(m_session, username, password)) ==
-      LIBSSH2_ERROR_EAGAIN);
+  char *userauthlist = libssh2_userauth_list(m_session, username, strlen(username));
+
+  if(userauthlist == NULL)
+    qDebug() << "NULL";
+
+  rc = libssh2_session_last_errno(m_session);
+
+  if(rc ==  LIBSSH2_ERROR_EAGAIN) {
+    qDebug() << "wait";
+    waitForSocket(SLOT(userAuth));
+    return;
+  }
+  else {
+    qDebug() << "rc: " << rc;
+    return;
+  }
+
+  qDebug() << userauthlist;
+
+  if (strstr(userauthlist, "password") != NULL) {
+    while ((rc = libssh2_userauth_password(m_session, username, pass)) ==
+           LIBSSH2_ERROR_EAGAIN);
 
     if (rc) {
-      fprintf(stderr, "Authentication by password failed.\n");
-      //goto shutdown;
-      return;
+       qDebug() << "error : " << rc;
+       m_askPassword->incorrect();
+       fprintf(stderr, "Authentication by password failed.\n");
+       // shutdown session here ...
+       m_session = NULL;
+       openSession();
+        //goto shutdown;
+       return;
     }
+
+    m_askPassword->correct();
+
+    emit sessionOpen();
+  }
+  else if(strstr(userauthlist, "keyboard-interactive") != NULL) {
+    passwd = pass;
+
+    rc = libssh2_userauth_keyboard_interactive(m_session, username, &kbd_callback);
+
+    if(rc)
+    {
+      qDebug() << "error";
+    }
+
+    m_askPassword->correct();
+
+    emit sessionOpen();
+ }
 }
+
+
+
 
 SshOperation *LibSsh2Connection::newCommand(const QString &command)
 {
@@ -195,7 +294,8 @@ SshOperation *LibSsh2Connection::newDirUpload(const QString &localDir,
 SshOperation *LibSsh2Connection::newDirDownload(const QString &remoteDir,
                                              const QString &localDir)
 {
-  LibSsh2Operation *op = new DirDownload(this, localDir, remoteDir);
+  QString fullLocalPath = localDir + "/" + QDir(remoteDir).dirName();
+  LibSsh2Operation *op = new DirDownload(this, fullLocalPath, remoteDir);
   return op;
 }
 
@@ -206,5 +306,26 @@ SshOperation *LibSsh2Connection::newDirRemove(const QString &remoteDir)
 
 }
 
+LIBSSH2_SESSION * LibSsh2Connection::session()
+{
+  return m_session;
+}
 
+
+void LibSsh2Connection::disableNotifiers()
+{
+  m_readNotifier->setEnabled(false);
+
+  disconnect(m_readNotifier, SIGNAL(activated(int)), 0, 0);
+}
+
+void LibSsh2Connection::waitForSocket(const char *slot)
+{
+  if(!m_readNotifier) {
+    m_readNotifier = new SocketNotifier(sock,
+                                        QSocketNotifier::Read, this);
+  }
+
+  m_readNotifier->setEnabled(true);
+}
 } /* namespace MoleQueue */

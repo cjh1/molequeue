@@ -55,6 +55,7 @@ protected slots:
 
 private slots:
   void showFileDialog();
+  void useLibSsh2(int state);
 
 private:
   Ui::RemoteQueueWidget *ui;

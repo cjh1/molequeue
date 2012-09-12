@@ -71,13 +71,13 @@ SftpOperation::SftpOperation(QObject *parentObject,
                              LibSsh2Connection *connection) :
   LibSsh2Operation(parentObject, connection), m_sftp_session(NULL)
 {
-
+  init();
 }
 
 SftpOperation::SftpOperation(LibSsh2Connection *connection) :
   LibSsh2Operation(connection, connection), m_sftp_session(NULL)
 {
-
+  init();
 }
 
 SftpOperation::SftpOperation(QObject *parentObject,
@@ -85,27 +85,36 @@ SftpOperation::SftpOperation(QObject *parentObject,
                              LIBSSH2_SFTP *sftp_session) :
   LibSsh2Operation(parentObject, connection), m_sftp_session(sftp_session)
 {
-
+  init();
 }
 
 SftpOperation::SftpOperation(LibSsh2Connection *connection,
                              LIBSSH2_SFTP *sftp_session) :
   LibSsh2Operation(connection, connection), m_sftp_session(sftp_session)
 {
-
+  init();
 }
 
-
+void SftpOperation::init()
+{
+  connect(m_connection, SIGNAL(sessionOpen()),
+        this, SLOT(openSftpSession()));
+}
 
 bool SftpOperation::execute()
 {
-  openSftpSession();
-
+  m_connection->openSession();
   return true;
 }
 
 void SftpOperation::openSftpSession()
 {
+
+  // Disconnection from sessionOpen or we will get call again
+  LibSsh2Connection *con = qobject_cast<LibSsh2Connection *>(sender());
+  if(con) {
+    disconnect(con, SIGNAL(sessionOpen()), this, 0);
+  }
 
   if(m_sftp_session == NULL) {
     qDebug() << "Open session: ";
@@ -422,6 +431,8 @@ void FileTransfer::sftpWrite()
   if (bytesRead <= 0) {
     /* end of file */
     emit complete();
+
+    libssh2_sftp_close(m_sftp_handle);
     return;
   }
 
@@ -430,7 +441,10 @@ void FileTransfer::sftpWrite()
 
   if( rc == LIBSSH2_ERROR_EAGAIN) {
      waitForSocket(SLOT(sftpWrite()));
+     return;
   }
+
+  libssh2_sftp_close(m_sftp_handle);
 }
 
 /*** DirTransfer ***/
@@ -553,9 +567,7 @@ FileUpload::FileUpload(QObject *parentObject,
     const QString &remoteFile) :
     FileTransfer(parentObject, connection, localFile, remoteFile)
 {
-  m_flags = LIBSSH2_FXF_WRITE|LIBSSH2_FXF_CREAT|LIBSSH2_FXF_TRUNC;
-  m_mode = LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|
-              LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH;
+  init();
 }
 
 FileUpload::FileUpload(QObject *parentObject,
@@ -567,10 +579,7 @@ FileUpload::FileUpload(QObject *parentObject,
     FileTransfer(parentObject, connection, sftp_session,
                       sftp_handle, localFile, remoteFile)
 {
-  m_flags = LIBSSH2_FXF_WRITE|LIBSSH2_FXF_CREAT|LIBSSH2_FXF_TRUNC;
-  m_mode = LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|
-            LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH;
-
+  init();
 }
 
 FileUpload::FileUpload(LibSsh2Connection *connection,
@@ -578,10 +587,7 @@ FileUpload::FileUpload(LibSsh2Connection *connection,
     const QString &remoteFile) :
     FileTransfer(connection, localFile, remoteFile)
 {
-  m_flags = LIBSSH2_FXF_WRITE|LIBSSH2_FXF_CREAT|LIBSSH2_FXF_TRUNC;
-  m_mode = LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|
-            LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH;
-
+  init();
 }
 
 FileUpload::FileUpload(LibSsh2Connection *connection,
@@ -592,10 +598,14 @@ FileUpload::FileUpload(LibSsh2Connection *connection,
     FileTransfer(connection, sftp_session, sftp_handle,
                  localFile, remoteFile)
 {
-  m_flags = LIBSSH2_FXF_WRITE|LIBSSH2_FXF_CREAT|LIBSSH2_FXF_TRUNC;
-  m_mode = LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|
-            LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH;
+  init();
+}
 
+void FileUpload::init()
+{
+  m_flags = LIBSSH2_FXF_WRITE|LIBSSH2_FXF_CREAT|LIBSSH2_FXF_TRUNC;
+  m_mode = LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|LIBSSH2_SFTP_S_IXUSR|
+            LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH;
 }
 
 /*** DirDownload ***/
@@ -765,14 +775,11 @@ void DirDownload::downloadDir()
   QString localpath = m_localFile + "/";
   QString remotepath = m_remoteFile + "/";
 
-
-  qDebug() <<"downloadDitr localPath: " << localpath;
-
   // Create local directory
    QDir locdir;
    if (!locdir.mkpath(localpath)) {
      qWarning() << "Could not create local directory " << localpath;
-     //sftp_free(sftp);
+     // clean up
      return;
    }
 

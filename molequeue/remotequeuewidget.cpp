@@ -76,6 +76,11 @@ RemoteQueueWidget::RemoteQueueWidget(QueueRemoteSsh *queue,
           this, SLOT(setDirty()));
   connect(ui->wallTimeMinutes, SIGNAL(valueChanged(int)),
           this, SLOT(setDirty()));
+  connect(ui->useLibSsh2CheckBox, SIGNAL(stateChanged(int)),
+            this, SLOT(setDirty()));
+  connect(ui->useLibSsh2CheckBox, SIGNAL(stateChanged(int)),
+            this, SLOT(useLibSsh2(int)));
+
 
   connect(ui->pushTestConnection, SIGNAL(clicked()),
           this, SLOT(testConnection()));
@@ -85,6 +90,11 @@ RemoteQueueWidget::RemoteQueueWidget(QueueRemoteSsh *queue,
           this, SLOT(showHelpDialog()));
   connect(ui->fileButton, SIGNAL(clicked()),
           this, SLOT(showFileDialog()));
+
+  ui->editIdentityFile->setEnabled(!queue->useLibSsh2());
+  ui->sshExecutableEdit->setEnabled(!queue->useLibSsh2());
+  ui->scpExecutableEdit->setEnabled(!queue->useLibSsh2());
+
 }
 
 RemoteQueueWidget::~RemoteQueueWidget()
@@ -105,6 +115,7 @@ void RemoteQueueWidget::save()
   m_queue->setUserName(ui->editUserName->text());
   m_queue->setIdentityFile(ui->editIdentityFile->text());
   m_queue->setSshPort(ui->spinSshPort->value());
+  m_queue->setUseLibSsh2(ui->useLibSsh2CheckBox->isChecked());
 
   m_queue->setQueueUpdateInterval(ui->updateIntervalSpin->value());
 
@@ -135,6 +146,7 @@ void RemoteQueueWidget::reset()
   ui->editIdentityFile->setText(m_queue->identityFile());
   ui->spinSshPort->setValue(m_queue->sshPort());
   ui->text_launchTemplate->document()->setPlainText(m_queue->launchTemplate());
+  ui->useLibSsh2CheckBox->setChecked(m_queue->useLibSsh2());
   setDirty(false);
 }
 
@@ -333,6 +345,13 @@ void RemoteQueueWidget::showFileDialog()
   settings.setValue("ssh/identity/lastIdentityFile", identityFileName);
 
   ui->editIdentityFile->setText(identityFileName);
+}
+
+void RemoteQueueWidget::useLibSsh2(int state) {
+
+  ui->editIdentityFile->setEnabled(state != Qt::Checked);
+  ui->sshExecutableEdit->setEnabled(state != Qt::Checked);
+  ui->scpExecutableEdit->setEnabled(state != Qt::Checked);
 }
 
 } // end namespace MoleQueue

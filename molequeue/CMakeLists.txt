@@ -26,6 +26,7 @@ set(mq_srcs
   advancedfilterdialog.cpp
   actionfactorymanager.cpp
   addqueuedialog.cpp
+  askpassword.cpp
   filespecification.cpp
   importprogramdialog.cpp
   importqueuedialog.cpp
@@ -54,6 +55,7 @@ set(mq_srcs
   openwithexecutablemodel.cpp
   openwithpatternmodel.cpp
   opensshcommandconnection.cpp
+  passworddialog.cpp
   patterntypedelegate.cpp
   pluginmanager.cpp
   program.cpp
@@ -104,6 +106,7 @@ qt4_wrap_ui(ui_srcs
   ui/logwindow.ui
   ui/mainwindow.ui
   ui/openwithmanagerdialog.ui
+  ui/passworddialog.ui
   ui/programconfiguredialog.ui
   ui/queuemanagerdialog.ui
   ui/queuesettingsdialog.ui
