@@ -109,18 +109,23 @@ bool SftpOperation::execute()
 
 void SftpOperation::openSftpSession()
 {
-
+  LIBSSH2_SFTP *sftp_session = NULL;
   // Disconnection from sessionOpen or we will get call again
   LibSsh2Connection *con = qobject_cast<LibSsh2Connection *>(sender());
   if(con) {
     disconnect(con, SIGNAL(sessionOpen()), this, 0);
   }
 
-  if(m_sftp_session == NULL) {
-    m_sftp_session = libssh2_sftp_init(m_connection->session());
+  if(m_connection->sftpSession() != NULL) {
+    sftpOpen();
+    return;
   }
 
-  if(!m_sftp_session) {
+  if(sftp_session == NULL) {
+    sftp_session = libssh2_sftp_init(m_connection->session());
+  }
+
+  if(!sftp_session) {
      int rc;
      if((rc = libssh2_session_last_errno(m_connection->session())) == LIBSSH2_ERROR_EAGAIN)
      {
@@ -132,7 +137,9 @@ void SftpOperation::openSftpSession()
      }
   }
   else {
-    qDebug() << "open " << m_sftp_session;
+    qDebug() << "open " << sftp_session;
+    m_connection->setSftpSession(sftp_session);
+    m_sftp_session = sftp_session;
     sftpOpen();
   }
 }
@@ -230,7 +237,7 @@ void DirUpload::sftpOpen()
 void DirDownload::sftpOpen()
 {
   qDebug() << "open dir" << m_remoteFile;
-  m_sftp_handle = libssh2_sftp_opendir(m_sftp_session,
+  m_sftp_handle = libssh2_sftp_opendir(m_connection->sftpSession(),
                                        m_remoteFile.toLocal8Bit().data());
 
   if (!m_sftp_handle) {
@@ -254,7 +261,7 @@ void FileTransfer ::sftpOpen()
 
   qDebug() << "remote: " << m_remoteFile;
 
-  m_sftp_handle = libssh2_sftp_open(m_sftp_session,
+  m_sftp_handle = libssh2_sftp_open(m_connection->sftpSession(),
                                     m_remoteFile.toLocal8Bit().data(),
                                     m_flags, m_mode);
 
@@ -393,12 +400,11 @@ void FileTransfer::sftpRead()
       m_file = new QFile(m_localFile);
       m_file->open(QIODevice::WriteOnly);
     }
-    qDebug() << "rc: " << rc;
 
     if (rc > 0) {
-      qDebug() << "m_file" << m_file;
-        m_file->write(buffer, rc);
+      m_file->write(buffer, rc);
       sftpRead();
+      return;
     }
     // Finished
     else if(rc == 0 ) {
@@ -417,32 +423,55 @@ void FileTransfer::sftpRead()
 void FileTransfer::sftpWrite()
 {
 
-  char mem[1024 * 100];
-
   if(m_file == NULL) {
     m_file = new QFile(m_localFile);
     m_file->open(QIODevice::ReadOnly);
   }
 
-  qint64 bytesRead = m_file->read(mem, 1024 * 100);
+  // We need to read more from the file
+  if(m_bytesRead == 0) {
+    m_bytesRead = m_file->read(m_mem, 1024 * 100);
 
-  if (bytesRead <= 0) {
-    /* end of file */
-    emit complete();
-
-    libssh2_sftp_close(m_sftp_handle);
-    return;
+    if (m_bytesRead <= 0) {
+      /* end of file */
+      emit complete();
+      m_file->close();
+      m_file = NULL;
+      libssh2_sftp_close(m_sftp_handle);
+      return;
+    }
   }
 
   /* write data in a loop until we block */
-  int rc = libssh2_sftp_write(m_sftp_handle, mem, bytesRead);
+  int rc = libssh2_sftp_write(m_sftp_handle, m_mem, m_bytesRead);
 
   if( rc == LIBSSH2_ERROR_EAGAIN) {
      waitForSocket(SLOT(sftpWrite()));
      return;
   }
 
-  libssh2_sftp_close(m_sftp_handle);
+  if(rc < 0) {
+    qDebug() << "Write error: " << rc;
+    return;
+  }
+
+  // Not bytes should be written
+  if(rc != m_bytesRead) {
+    int byteLeft = m_bytesRead-rc;
+    memcpy(m_mem, m_mem+rc, byteLeft);
+    m_bytesRead = byteLeft;
+
+    // Try again
+    sftpWrite();
+    return;
+  }
+  else {
+    // reset counter and start again
+    m_bytesRead = 0;
+    sftpWrite();
+    return;
+  }
+
 }
 
 /*** DirTransfer ***/
@@ -739,7 +768,7 @@ void DirUpload::uploadDir()
   files = locdir.entryList(QDir::Files, QDir::Name);
 
   // Create remote directory
-  while (libssh2_sftp_mkdir(m_sftp_session, remotepath.toLocal8Bit().data(),
+  while (libssh2_sftp_mkdir(m_connection->sftpSession(), remotepath.toLocal8Bit().data(),
                             LIBSSH2_SFTP_S_IRWXU|
                             LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IXGRP|
                             LIBSSH2_SFTP_S_IROTH|LIBSSH2_SFTP_S_IXOTH)
@@ -751,7 +780,7 @@ void DirUpload::uploadDir()
 
 void TransferOperation::sftpCleanup()
 {
-  libssh2_sftp_shutdown(m_sftp_session);
+  //libssh2_sftp_shutdown(m_sftp_session);
 
 }
 

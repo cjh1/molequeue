@@ -160,6 +160,8 @@ protected slots:
 protected:
   int m_flags;
   int m_mode;
+  char m_mem[1024 * 100];
+  qint64 m_bytesRead;
 
 private:
   QFile *m_file;

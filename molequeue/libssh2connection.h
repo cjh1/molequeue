@@ -21,6 +21,7 @@
 #include "libssh2operations.h"
 #include "sshoperation.h"
 #include <libssh2.h>
+#include <libssh2_sftp.h>
 #include <QtCore/QObject>
 #include <QTcpSocket>
 #include <QtCore/QSocketNotifier>
@@ -74,8 +75,18 @@ public:
     return sock;
   };
 
+  LIBSSH2_SFTP *sftpSession() {
+    return m_sftp_session;
+  }
+
+  void setSftpSession(LIBSSH2_SFTP *sftp_session) {
+    m_sftp_session = sftp_session;
+  }
+
   void askKeyboardInterative(const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
                              LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses);
+
+  void close();
 signals:
   void sessionOpen();
   void responseSet();
@@ -91,6 +102,7 @@ private:
   SocketNotifier *m_writeNotifier;
   QString m_authList;
   LIBSSH2_USERAUTH_KBDINT_RESPONSE *m_responses;
+  LIBSSH2_SFTP *m_sftp_session;
 
 private slots:
   void userAuth();

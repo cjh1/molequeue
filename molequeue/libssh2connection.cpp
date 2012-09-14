@@ -109,7 +109,8 @@ LibSsh2Connection::LibSsh2Connection(const QString &hostName,
                                      QObject *parentObject) :
   SshConnection(parentObject), m_hostName(hostName), m_userName(userName),
   m_port(port), sock(NULL), m_session(NULL), m_askPassword(askPass),
-  m_readNotifier(NULL), m_writeNotifier(NULL), m_responses(NULL)
+  m_readNotifier(NULL), m_writeNotifier(NULL), m_responses(NULL),
+  m_sftp_session(NULL)
 {
 
 }
@@ -170,6 +171,9 @@ void LibSsh2Connection::openSession()
     qDebug() << "can't create session";
     return;
   }
+
+  //libssh2_trace(m_session, LIBSSH2_TRACE_CONN | LIBSSH2_TRACE_ERROR | LIBSSH2_TRACE_SFTP);
+
   /* Since we have set non-blocking, tell libssh2 we are non-blocking */
   libssh2_session_set_blocking(m_session, 0);
 
@@ -326,7 +330,6 @@ SshOperation *LibSsh2Connection::newCommand(const QString &command)
 SshOperation *LibSsh2Connection::newFileDownload(const QString &remoteFile,
                                               const QString &localFile)
 {
-  qDebug() << "download";
   LibSsh2Operation *op = new FileDownload(this, localFile, remoteFile);
   return op;
 }
@@ -435,7 +438,10 @@ void LibSsh2Connection::askKeyboardInterative(const QString &passcode)
 
 
 
+void LibSsh2Connection::close() {
 
+  libssh2_sftp_shutdown(m_sftp_session);
+}
 
 
 
