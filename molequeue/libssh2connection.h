@@ -74,8 +74,11 @@ public:
     return sock;
   };
 
+  void askKeyboardInterative(const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
+                             LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses);
 signals:
   void sessionOpen();
+  void responseSet();
 
 private:
   QString m_hostName;
@@ -85,9 +88,16 @@ private:
   int sock;
   AskPassword *m_askPassword;
   SocketNotifier *m_readNotifier;
+  SocketNotifier *m_writeNotifier;
+  QString m_authList;
+  LIBSSH2_USERAUTH_KBDINT_RESPONSE *m_responses;
 
 private slots:
-  void userAuth(const QString& password);
+  void userAuth();
+  void userAuthPassword(QString password);
+  void userAuthKeyboardInterative();
+
+  void askKeyboardInterative(const QString &passcode);
   void disableNotifiers();
   void waitForSocket(const char *slot);
 

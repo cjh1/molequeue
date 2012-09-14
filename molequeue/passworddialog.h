@@ -35,11 +35,13 @@ public:
   PasswordDialog(const QString &hostString, QWidget *parent = 0);
   void setHostString(const QString &hostString);
   void setErrorString(const QString &errorString);
+  void setPrompt(const QString &prompt);
 
 public slots:
   void accept();
   void clear();
   void clearPassword();
+
 
 signals:
   void entered(const QString &password);

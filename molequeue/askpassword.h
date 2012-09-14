@@ -31,7 +31,8 @@ public:
   AskPassword(QObject *parentObject);
 
 public slots:
-  virtual void ask(const QString &hostString) = 0;
+  virtual void ask(const QString &hostString,
+                   const QString &prompt) = 0;
   virtual void incorrect() = 0;
   virtual void correct() = 0;
 
@@ -48,9 +49,11 @@ public:
   ~QDialogAskPassword();
 
 public slots:
-  void ask(const QString &hostString);
+  void ask(const QString &hostString,
+           const QString &prompt);
   void incorrect();
   void correct();
+  void setPrompt(const QString &prompt);
 
 private:
   PasswordDialog *m_passwordDialog;

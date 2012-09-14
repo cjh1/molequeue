@@ -278,8 +278,6 @@ void QueueRemoteSsh::jobSubmittedToRemoteQueue()
 
   IdType queueId;
 
-  qDebug()<<"op output: " << op->output();
-
   parseQueueId(op->output(), &queueId);
   Job job = op->data().value<Job>();
 
@@ -292,9 +290,9 @@ void QueueRemoteSsh::jobSubmittedToRemoteQueue()
   if (op->errorCode() != 0) {
     Logger::logWarning(tr("Could not submit job to remote queue on %1@%2:%3\n"
                           "%4 %5/%6/%7\nExit code (%8) %9")
-                       .arg(m_sshConnection->userName())
-                       .arg(m_sshConnection->hostName())
-                       .arg(m_sshConnection->portNumber()).arg(m_submissionCommand)
+                       .arg(m_userName)
+                       .arg(m_hostName)
+                       .arg(m_sshPort).arg(m_submissionCommand)
                        .arg(m_workingDirectoryBase).arg(job.moleQueueId())
                        .arg(m_launchScriptName).arg(op->errorCode())
                        .arg(op->output()), job.moleQueueId());

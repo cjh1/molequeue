@@ -82,7 +82,7 @@ protected slots:
   void closeChannel();
 
 private slots:
-  void sftpChannelOpen();
+  void openChannel();
   void execCommand();
   void readComplete();
 

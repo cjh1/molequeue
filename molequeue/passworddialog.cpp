@@ -58,4 +58,9 @@ void PasswordDialog::clearPassword()
   ui->lineEdit_2->setText("");
 }
 
+void PasswordDialog::setPrompt(const QString &prompt)
+{
+  ui->promptLabel->setText(prompt);
+}
+
 } /* namespace MoleQueue */

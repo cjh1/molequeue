@@ -117,18 +117,16 @@ void SftpOperation::openSftpSession()
   }
 
   if(m_sftp_session == NULL) {
-    qDebug() << "Open session: ";
     m_sftp_session = libssh2_sftp_init(m_connection->session());
-    qDebug() << "Opened session: ";
   }
 
-  qDebug() << "session " <<  m_sftp_session;
   if(!m_sftp_session) {
-     if(libssh2_session_last_errno(m_connection->session()) == LIBSSH2_ERROR_EAGAIN)
+     int rc;
+     if((rc = libssh2_session_last_errno(m_connection->session())) == LIBSSH2_ERROR_EAGAIN)
      {
        waitForSocket(SLOT(openSftpSession()));
      } else {
-       fprintf(stderr, "Unable to init SFTP session\n");
+       fprintf(stderr, "Unable to init SFTP session %d\n", rc);
        return;
        //goto shutdown;
      }

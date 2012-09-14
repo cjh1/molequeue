@@ -110,9 +110,11 @@ void LibSsh2Operation::init()
 
 void CommandOperation::closeChannel()
 {
+  qDebug() << ">>> closeChannel";
   int rc = libssh2_channel_close(m_channel);
 
   if(rc == LIBSSH2_ERROR_EAGAIN) {
+    qDebug() << "closeChannel : waiting for socket";
     waitForSocket(SLOT(closeChannel()));
   } else {
     if(rc == 0) {
@@ -143,6 +145,8 @@ void CommandOperation::closeChannel()
   complete();
 
   libssh2_channel_free(m_channel);
+
+  qDebug() << ">>> closeChannel";
 }
 
 void LibSsh2Operation::disableNotifiers()
@@ -192,7 +196,7 @@ CommandOperation::CommandOperation(LibSsh2Connection *connection, QString cmd) :
   LibSsh2Operation(connection), m_command(cmd)
 {
   connect(m_connection, SIGNAL(sessionOpen()),
-          this, SLOT(sftpChannelOpen()));
+          this, SLOT(openChannel()));
 }
 
 bool CommandOperation::execute()
@@ -201,8 +205,10 @@ bool CommandOperation::execute()
   return true;
 }
 
-void CommandOperation::sftpChannelOpen()
+void CommandOperation::openChannel()
 {
+
+  qDebug() << ">>> openChannel";
   // Disconnection from sessionOpen or we will get call again
   LibSsh2Connection *con = qobject_cast<LibSsh2Connection *>(sender());
   if(con) {
@@ -213,13 +219,25 @@ void CommandOperation::sftpChannelOpen()
   if( (m_channel = libssh2_channel_open_session(m_connection->session())) == NULL &&
         libssh2_session_last_error(m_connection->session(),NULL,NULL,0) ==
        LIBSSH2_ERROR_EAGAIN ) {
-    waitForSocket(SLOT(sftpChannelOpen()));
+    qDebug() << "openChannel : waiting for socket";
+    waitForSocket(SLOT(openChannel()));
   }
   else {
     if( m_channel == NULL )
     {
+      qDebug() << "openChannel : error: " << m_errorCode;
       m_errorCode = libssh2_session_last_error(m_connection->session(),NULL,NULL,0);
       m_errorString = tr("libssh2_channel_open_session error %1").arg(m_errorCode);
+
+      char *errmsg;
+      int errmsg_len;
+
+      int e = libssh2_session_last_error(m_connection->session(), &errmsg, &errmsg_len, 0);
+
+      qDebug() << "openChannel : libssh2_session_last_error return : " << e;
+      qDebug() << "openChannel : last error: " << errmsg;
+
+
       Logger::logError(m_errorString);
       completeWithError();
       return;
@@ -227,18 +245,23 @@ void CommandOperation::sftpChannelOpen()
 
     execCommand();
   }
+
+  qDebug() << "<<< openChannel";
+
 }
 
 void CommandOperation::execCommand()
 {
+  qDebug() << ">>> execCommand";
 
   int rc = libssh2_channel_exec(m_channel, m_command.toLocal8Bit().data());
 
   if(rc == LIBSSH2_ERROR_EAGAIN) {
+    qDebug() << "execCommand : waiting for socket";
     waitForSocket(SLOT(execCommand()));
   }
   else if(rc == 0) {
-    qDebug() << "create reader";
+    qDebug() << "execCommand : creating reader" ;
     LibSsh2ChannelReader *reader = new LibSsh2ChannelReader(this,
                                                             m_connection,
                                                             m_channel);
@@ -249,24 +272,25 @@ void CommandOperation::execCommand()
     reader->read();
   }
   else {
+    qDebug() << "execCommand : error :" << rc;
     m_errorCode = rc;
     m_errorString = tr("libssh2_channel_exec error %1").arg(rc);
     Logger::logError(m_errorString);
     closeChannel();
     completeWithError();
   }
+
+  qDebug() << "<<< execCommand";
 }
 
 
 void CommandOperation::readComplete() {
 
+  qDebug() << ">>> readComplete";
+
   LibSsh2ChannelReader *reader = qobject_cast<LibSsh2ChannelReader*>(sender());
 
-  qDebug() << "reader: " <<reader;
-
   m_output = reader->output();
-  qDebug() << reader->output();
-  qDebug() << "output: " << m_output;
 
   reader->deleteLater();
 
@@ -276,6 +300,8 @@ void CommandOperation::readComplete() {
   }
 
   closeChannel();
+
+  qDebug() << "<<< readComplete";
 }
 
 LibSsh2ChannelReader::LibSsh2ChannelReader(QObject *parentObject,
@@ -296,7 +322,15 @@ bool LibSsh2ChannelReader::execute()
 
 void LibSsh2ChannelReader::read()
 {
-  readStdOut();
+  qDebug() << ">>> read";
+  while(!libssh2_channel_eof(m_channel)) {
+    readStdOut();
+    readStdErr();
+  }
+
+  m_output = m_buffer;
+  emit readComplete();
+  qDebug() << "<<< read";
 }
 
 void LibSsh2ChannelReader::readStdOut()
@@ -308,8 +342,6 @@ void LibSsh2ChannelReader::readStdOut()
   {
     char buffer[0x4000];
     rc = libssh2_channel_read(m_channel, buffer, sizeof(buffer) );
-
-    qDebug() << "read rc: " << rc;
 
     if( rc > 0 ) {
       m_buffer.append(buffer, rc);
@@ -327,10 +359,6 @@ void LibSsh2ChannelReader::readStdOut()
   {
     waitForSocket(SLOT(readStdOut()));
   }
-  else {
-    // Now read stderr
-    readStdErr();
-  }
 }
 
 void LibSsh2ChannelReader::readStdErr()
@@ -342,13 +370,11 @@ void LibSsh2ChannelReader::readStdErr()
     char buffer[0x4000];
     rc = libssh2_channel_read_stderr(m_channel, buffer, sizeof(buffer) );
 
-    qDebug() << "read rc: " << rc;
-
     if( rc > 0 ) {
       m_buffer.append(buffer, rc);
     }
     else if (rc < 0 && rc != LIBSSH2_ERROR_EAGAIN){
-      m_errorCode = libssh2_session_last_error(m_connection->session(),NULL,NULL,0);
+      m_errorCode = rc;
       m_errorString = tr("libssh2_channel_read error %1").arg(rc);
       Logger::logError(m_errorString);
       break;
@@ -359,10 +385,6 @@ void LibSsh2ChannelReader::readStdErr()
   if( rc == LIBSSH2_ERROR_EAGAIN )
   {
     waitForSocket(SLOT(readStdErr()));
-  }
-  else {
-    m_output = m_buffer;
-    emit readComplete();
   }
 }
 

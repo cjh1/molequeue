@@ -37,7 +37,8 @@ QDialogAskPassword::~QDialogAskPassword()
   delete m_passwordDialog;
 }
 
-void QDialogAskPassword::ask(const QString &hostString)
+void QDialogAskPassword::ask(const QString &hostString,
+                             const QString &prompt)
 {
   if(m_passwordDialog == NULL) {
     m_passwordDialog = new PasswordDialog(QString("test@salix"));
@@ -46,6 +47,7 @@ void QDialogAskPassword::ask(const QString &hostString)
   }
 
   m_passwordDialog->setHostString(hostString);
+  m_passwordDialog->setPrompt(prompt);
   m_passwordDialog->show();
   m_passwordDialog->raise();
 }
@@ -65,6 +67,10 @@ void QDialogAskPassword::correct()
   m_passwordDialog->hide();
   delete m_passwordDialog;
   m_passwordDialog = NULL;
+}
+
+void QDialogAskPassword::setPrompt(const QString &prompt) {
+  m_passwordDialog->setPrompt(prompt);
 }
 
 } /* namespace MoleQueue */

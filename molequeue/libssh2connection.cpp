@@ -24,7 +24,7 @@
 #include <QList>
 #include <QtCore/QObject>
 #include <QtCore/QDir>
-
+#include <QtCore/QEventLoop>
 
 //#include "libssh2_config.h"
 
@@ -68,31 +68,36 @@ namespace MoleQueue
 {
 
 
-extern "C" {
+extern "C" LibSsh2Connection *conn = NULL;
 
-static char* passwd;
-
-
-static void kbd_callback(const char *name, int name_len,
-                         const char *instruction, int instruction_len, int num_prompts,
-                         const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
-                         LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses,
-                         void **abstract)
+extern "C" void kbd_callback(const char *name, int name_len,
+                             const char *instruction, int instruction_len, int num_prompts,
+                             const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
+                             LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses,
+                             void **abstract)
 {
-    printf("callback");
+  (void)abstract;
+
+    printf("callback\n");
+
     int i;
     size_t n;
     char buf[1024];
     (void)abstract;
 
-    responses[i].text = strdup(passwd);
-    responses[i].length = strlen(passwd);
+    if(prompts == NULL)
+      return;
 
     fwrite(prompts[0].text, 1, prompts[0].length, stdout);
+    printf("\n");
 
+    conn->askKeyboardInterative(prompts, responses);
 
-}
+    QEventLoop loop;
 
+    loop.connect(conn, SIGNAL(responseSet()),
+                 SLOT(quit()));
+    loop.exec();
 }
 
 
@@ -104,10 +109,9 @@ LibSsh2Connection::LibSsh2Connection(const QString &hostName,
                                      QObject *parentObject) :
   SshConnection(parentObject), m_hostName(hostName), m_userName(userName),
   m_port(port), sock(NULL), m_session(NULL), m_askPassword(askPass),
-  m_readNotifier(NULL)
+  m_readNotifier(NULL), m_writeNotifier(NULL), m_responses(NULL)
 {
-  connect(m_askPassword, SIGNAL(entered(const QString&)),
-          this, SLOT(userAuth(const QString&)));
+
 }
 
 void LibSsh2Connection::openSession()
@@ -142,8 +146,11 @@ void LibSsh2Connection::openSession()
    * connection
    */
   QList<QHostAddress> addresses = QHostInfo::fromName(m_hostName).addresses();
-  unsigned long hostaddr = inet_addr(addresses[0].toString().toLocal8Bit().data());
+  // Check for error ...
+  QByteArray addr = addresses[0].toString().toLocal8Bit();
+  unsigned long hostaddr = inet_addr(addr.constData());
   sock = ::socket(AF_INET, SOCK_STREAM, 0);
+
 
   sin.sin_family = AF_INET;
   sin.sin_port = htons(m_port);
@@ -159,9 +166,10 @@ void LibSsh2Connection::openSession()
   m_session = libssh2_session_init();
 
 
-  if (!m_session)
+  if (!m_session) {
+    qDebug() << "can't create session";
     return;
-
+  }
   /* Since we have set non-blocking, tell libssh2 we are non-blocking */
   libssh2_session_set_blocking(m_session, 0);
 
@@ -192,76 +200,122 @@ void LibSsh2Connection::openSession()
   }
   fprintf(stderr, "\n");
 
-  m_askPassword->ask(tr("%1@%2").arg(m_userName).arg(m_hostName));
+  userAuth();
 }
 
-void LibSsh2Connection::userAuth(const QString &password)
+void LibSsh2Connection::userAuth()
 {
+  qDebug() << "userAuth";
 
+  QByteArray user = m_userName.toLocal8Bit();
+  const char *username = user.constData();
+
+  int rc ;
+  char *userauthlist;
+  while((userauthlist = libssh2_userauth_list(m_session, username,
+                                              strlen(username))) == NULL &&
+        (rc = libssh2_session_last_errno(m_session)) ==  LIBSSH2_ERROR_EAGAIN);
+
+  if (rc != LIBSSH2_ERROR_EAGAIN) {
+    qDebug() << "Error: " << rc;
+    // shutdown
+    return;
+  }
+
+  m_authList = QString(userauthlist);
+  qDebug() << "auth" << m_authList;
+
+  if(m_authList.contains("keyboard-interactive")) {
+
+    userAuthKeyboardInterative();
+
+  } else if(m_authList.contains("password")) {
+    userAuthPassword("");
+  }
+}
+
+void LibSsh2Connection::userAuthPassword(QString password)
+{
   int rc;
 
-  const char *username = m_userName.toLocal8Bit().data();
-  char *pass = password.toLocal8Bit().data();
+  if(password.length() == 0) {
+    connect(m_askPassword, SIGNAL(entered(const QString&)),
+            this, SLOT(userAuthPassword(QString)));
 
-  qDebug() << m_session;
-  qDebug() << m_userName;
-
-  char *userauthlist = libssh2_userauth_list(m_session, username, strlen(username));
-
-  if(userauthlist == NULL)
-    qDebug() << "NULL";
-
-  rc = libssh2_session_last_errno(m_session);
-
-  if(rc ==  LIBSSH2_ERROR_EAGAIN) {
-    qDebug() << "wait";
-    waitForSocket(SLOT(userAuth));
-    return;
-  }
-  else {
-    qDebug() << "rc: " << rc;
+    m_askPassword->ask(tr("%1@%2").arg(m_userName).arg(m_hostName),
+                       "Password:");
     return;
   }
 
-  qDebug() << userauthlist;
+  QByteArray pass = password.toLocal8Bit();
+  QByteArray user = m_userName.toLocal8Bit();
 
-  if (strstr(userauthlist, "password") != NULL) {
-    while ((rc = libssh2_userauth_password(m_session, username, pass)) ==
-           LIBSSH2_ERROR_EAGAIN);
+  while ((rc = libssh2_userauth_password(m_session,
+                                         user.constData(),
+                                         pass.constData())) ==
+         LIBSSH2_ERROR_EAGAIN);
 
-    if (rc) {
-       qDebug() << "error : " << rc;
-       m_askPassword->incorrect();
-       fprintf(stderr, "Authentication by password failed.\n");
-       // shutdown session here ...
-       m_session = NULL;
-       openSession();
-        //goto shutdown;
-       return;
-    }
-
-    m_askPassword->correct();
-
-    emit sessionOpen();
+  if (rc) {
+     qDebug() << "error : " << rc;
+     m_askPassword->incorrect();
+     fprintf(stderr, "Authentication by password failed.\n");
+     // shutdown session here ...
+     m_session = NULL;
+     openSession();
+      //goto shutdown;
+     return;
   }
-  else if(strstr(userauthlist, "keyboard-interactive") != NULL) {
-    passwd = pass;
 
-    rc = libssh2_userauth_keyboard_interactive(m_session, username, &kbd_callback);
+  m_askPassword->correct();
 
-    if(rc)
-    {
-      qDebug() << "error";
-    }
+  emit sessionOpen();
 
-    m_askPassword->correct();
-
-    emit sessionOpen();
- }
 }
 
 
+void LibSsh2Connection::userAuthKeyboardInterative()
+{
+  qDebug() << "interative";
 
+  if(libssh2_userauth_authenticated(m_session))
+    return;
+
+  disableNotifiers();
+
+  conn = this;
+
+  QByteArray user = m_userName.toLocal8Bit();
+  int rc = libssh2_userauth_keyboard_interactive(m_session,
+                                                 user.data(),
+                                                 &kbd_callback);
+
+  qDebug() << "rc: " << rc;
+
+  qDebug() << "auth:" << libssh2_userauth_authenticated(m_session);
+
+  if(rc == LIBSSH2_ERROR_EAGAIN) {
+    qDebug() << "wait for socket";
+    waitForSocket(SLOT(userAuthKeyboardInterative()));
+    return;
+  }
+
+
+  if(rc != 0){
+    if(rc == LIBSSH2_ERROR_AUTHENTICATION_FAILED) {
+      qDebug() << "auth falled!";
+      userAuthKeyboardInterative();
+    }
+    else {
+      qDebug() << "error:" << rc;
+    }
+
+    return;
+  }
+
+  m_askPassword->correct();
+
+  emit sessionOpen();
+}
 
 SshOperation *LibSsh2Connection::newCommand(const QString &command)
 {
@@ -311,12 +365,17 @@ LIBSSH2_SESSION * LibSsh2Connection::session()
   return m_session;
 }
 
-
 void LibSsh2Connection::disableNotifiers()
 {
-  m_readNotifier->setEnabled(false);
+  if(m_readNotifier) {
+    m_readNotifier->setEnabled(false);
+    disconnect(m_readNotifier, SIGNAL(activated(int)), 0, 0);
+  }
 
-  disconnect(m_readNotifier, SIGNAL(activated(int)), 0, 0);
+  if(m_writeNotifier) {
+    m_writeNotifier->setEnabled(false);
+    disconnect(m_writeNotifier, SIGNAL(activated(int)), 0, 0);
+  }
 }
 
 void LibSsh2Connection::waitForSocket(const char *slot)
@@ -325,7 +384,60 @@ void LibSsh2Connection::waitForSocket(const char *slot)
     m_readNotifier = new SocketNotifier(sock,
                                         QSocketNotifier::Read, this);
   }
+  if(!m_writeNotifier) {
+    m_writeNotifier = new SocketNotifier(sock,
+                                         QSocketNotifier::Write, this);
+  }
 
-  m_readNotifier->setEnabled(true);
+  int dir = libssh2_session_block_directions(m_session);
+  if(dir & LIBSSH2_SESSION_BLOCK_INBOUND) {
+    disconnect(m_readNotifier, SIGNAL(activated(int)), 0, 0);
+    connect(m_readNotifier, SIGNAL(activated(int)),
+            this, slot);
+    m_readNotifier->setEnabled(true);
+  }
+
+  if(dir & LIBSSH2_SESSION_BLOCK_OUTBOUND) {
+     disconnect(m_writeNotifier, SIGNAL(activated(int)), 0, 0);
+     connect(m_writeNotifier, SIGNAL(activated(int)),
+             this, slot);
+     m_writeNotifier->setEnabled(true);
+  }
 }
+
+void LibSsh2Connection::askKeyboardInterative(const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
+                                              LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses)
+{
+  m_responses = responses;
+  QString prompt = QString::fromLocal8Bit(prompts[0].text, prompts[0].length);
+
+  connect(m_askPassword, SIGNAL(entered(const QString&)),
+          this, SLOT(askKeyboardInterative(const QString&)));
+
+  m_askPassword->ask(tr("%1@%2").arg(m_userName).arg(m_hostName),
+                     prompt);
+}
+
+void LibSsh2Connection::askKeyboardInterative(const QString &passcode)
+{
+  QByteArray code = passcode.toLocal8Bit();
+  // What about clean of text? Does libssh2 do it?
+
+  if(m_responses != NULL) {
+
+    m_responses[0].text = strdup(code.constData());
+    m_responses[0].length = strlen(code.constData());
+    m_responses = NULL;
+  }
+
+  emit responseSet();
+}
+
+
+
+
+
+
+
+
 } /* namespace MoleQueue */
