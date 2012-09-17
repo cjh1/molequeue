@@ -23,12 +23,15 @@
 #include <QtCore/QObject>
 #include <QTcpSocket>
 #include <QtCore/QSocketNotifier>
+#include <QtCore/QBuffer>
+#include <QtCore/QTextStream>
 
 
 namespace MoleQueue
 {
 
 class LibSsh2Connection;
+class LibSsh2ChannelReader;
 
 class SocketNotifier: public QObject
 {
@@ -78,25 +81,51 @@ public:
 
   bool execute();
 
+  static const char *prompt;
+
 protected slots:
   void closeChannel();
 
 private slots:
   void openChannel();
   void execCommand();
+  void exitCode();
   void readComplete();
+  void requestPty();
+  void openShell();
+  void setPrompt();
+  void exitCodeComplete();
+  QString cleanOutput(QString output);
+  //void startBash();
 
 private:
   LIBSSH2_CHANNEL *m_channel;
   QString m_command;
-
-
+  LibSsh2ChannelReader *m_reader;
+  //static const char * redirectStdErr = "2>&1";
 
 
 
 };
 //class CopyOperation: public Operation {};
 
+
+class LibSsh2ChannelWriter: public libSsh2Operation
+{
+  Q_OBJECT
+public:
+
+  LibSsh2ChannelWriter(QObject *parentObject,
+                       LibSsh2Connection *connection,
+                       LIBSSH2_CHANNEL *channel);
+
+  void write(const QString &data, const char *completeSlot);
+
+private slots:
+  void write();
+
+  /// For writing to a channel
+};
 
 
 class LibSsh2ChannelReader: public LibSsh2Operation
@@ -114,14 +143,21 @@ signals:
 public slots:
   bool execute();
   void read();
+  void readToPrompt();
   void readStdOut();
   void readStdErr();
+  void reset(int promptCount);
 
 
 private:
   QByteArray m_buffer;
   int m_socket;
   LIBSSH2_CHANNEL *m_channel;
+  QBuffer *mq_buffer;
+  QTextStream *m_stream;
+  QString out;
+  int m_promptCount;
+
 };
 
 } /* namespace MoleQueue */
