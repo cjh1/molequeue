@@ -69,6 +69,7 @@ void DirectoryCreate::createNext()
   statRequest->setHostId(m_hostID);
   statRequest->setUserName(m_userName);
   statRequest->setFilename(m_currentDirectory);
+  qDebug() << "createNext::currentDirectory: " << m_currentDirectory;
 
   connect(statRequest, SIGNAL(finished()),
           this, SLOT(processStatResponse()));
@@ -80,6 +81,7 @@ void DirectoryCreate::createNext()
 
 void DirectoryCreate::processStatResponse()
 {
+  qDebug() << "DirectoryCreate::processStatResponse";
   StatFileRequest *request = qobject_cast<StatFileRequest*>(sender());
   if (!request) {
     Logger::logError(tr("Internal error: %1\n%2").arg(Q_FUNC_INFO)
@@ -102,6 +104,8 @@ void DirectoryCreate::statError(const QString &errorString)
 }
 
 void DirectoryCreate::createDirectory(const QString &dir) {
+
+  qDebug() << "DirectoryCreate::createDirectory: dir: " << dir;
 
   CreateDirectoryRequest *request = new CreateDirectoryRequest(m_session, this);
 
