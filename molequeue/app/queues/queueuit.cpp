@@ -215,6 +215,7 @@ void QueueUit::remoteDirectoryCreated()
 
 void QueueUit::copyInputFilesToHost(Job job)
 {
+  qDebug() << "QueueUit::copyInputFilesToHost";
   QString localDir = job.localWorkingDirectory();
   QString remoteDir = QDir::cleanPath((m_workingDirectoryBase));
 
@@ -253,6 +254,7 @@ void QueueUit::processStatFileRequest()
 
 void QueueUit::uploadInputFilesToHost(Job job)
 {
+  qDebug() << "QueueUit::uploadInputFilesToHost";
   QString localDir = job.localWorkingDirectory();
   QString remoteDir = QDir::cleanPath(QString("%1/%2")
                                       .arg(m_workingDirectoryBase)
